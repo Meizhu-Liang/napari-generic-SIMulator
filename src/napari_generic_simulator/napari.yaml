@@ -1,21 +1,12 @@
 name: napari-generic-SIMulator
 display_name: napari generic SIMulator
+
 contributions:
   commands:
-    - id: napari-generic-SIMulator.make_qwidget
-      python_name: napari_generic_simulator._widget:ExampleQWidget
-      title: Make example QWidget
-    - id: napari-generic-SIMulator.make_magic_widget
-      python_name: napari_generic_simulator._widget:example_magic_widget
-      title: Make example magic widget
-    - id: napari-generic-SIMulator.make_func_widget
-      python_name: napari_generic_simulator._widget:example_function_widget
-      title: Make example function widget
+    - id: napari-generic-SIMulator.make_simulator_widget
+      python_name: napari_generic_simulator._widget:SIMulator_widget
+      title: raw images SIMulator
+
   widgets:
-    - command: napari-generic-SIMulator.make_qwidget
-      display_name: Example QWidget
-    - command: napari-generic-SIMulator.make_magic_widget
-      display_name: Example Magic Widget
-    - command: napari-generic-SIMulator.make_func_widget
-      autogenerate: true
-      display_name: Example Function Widget
+    - command: napari-generic-SIMulator.make_simulator_widget
+      display_name: raw images SIMulator

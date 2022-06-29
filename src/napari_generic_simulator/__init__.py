@@ -3,9 +3,7 @@ try:
     from ._version import version as __version__
 except ImportError:
     __version__ = "unknown"
-from ._widget import ExampleQWidget, example_magic_widget
+__author__ = "Meizhu Liang"
+__email__ = "meizhu.liang18@imperial.ac.uk"
 
-__all__ = (
-    "ExampleQWidget",
-    "example_magic_widget",
-)
+from ._widget import SIMulator_widget
