@@ -173,26 +173,18 @@ class SIMulator():
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)
         w4 = magicgui(self.show_psf, layout="vertical", auto_call=True)
         w5 = magicgui(self.show_otf, layout="vertical", auto_call=True)
-        print(type(w2))
         self.w = Container(widgets=[w1,w2, w3, w4, w5], labels=None)
 
-
-
-class SIMulator_widget():
-    def __init__(self, viewer):
-        self.s = SIMulator(viewer)
-        self.s.run()
-        self.wid = self.s.w
-        print(type(self.wid))
-
-
-
+def SIMulator_widget(v):
+    viewer = v
+    s = SIMulator(viewer)
+    s.run()
+    return s.w
 
 if __name__ == '__main__':
+
     viewer = napari.Viewer()
     test = SIMulator_widget(viewer)
+    viewer.window.add_dock_widget(widget= test, name='my second app', add_vertical_stretch=True)
 
-    test.s.viewer.window.add_dock_widget(widget=test.wid,
-                                       name='my second app',
-                                       add_vertical_stretch=True)
     napari.run()
