@@ -153,7 +153,8 @@ class SIMulator():
 
     def show_img(self):
         self.get_results()
-        self.viewer.add_image(self.re0, name='raw image stack')
+        print(self.re0.shape)
+        self.viewer.add_image(data=self.re0, name='raw image stack')
 
     def show_raw_img_sum(self, show_raw_img_sum: bool=False):
         if show_raw_img_sum:
