@@ -175,7 +175,7 @@ class SIMulator():
         w5 = magicgui(self.show_otf, layout="vertical", auto_call=True)
         self.w = Container(widgets=[w1,w2, w3, w4, w5], labels=None)
 
-def SIMulator_widget(viewer: napari.Viewer):
+def SIMulator_widget(viewer=napari.Viewer):
     s = SIMulator(viewer)
     s.run()
     return s.w
@@ -184,6 +184,6 @@ if __name__ == '__main__':
 
     viewer = napari.Viewer()
     test = SIMulator_widget(viewer)
-    viewer.window.add_dock_widget(widget= test, name='my second app', add_vertical_stretch=True)
+    viewer.window.add_dock_widget(test, name='my second app', add_vertical_stretch=True)
 
     napari.run()
