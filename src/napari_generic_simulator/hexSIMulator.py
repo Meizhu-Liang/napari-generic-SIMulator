@@ -2,7 +2,7 @@
 Two child classes to simulate raw data of HexSim. @author: Meizhu Liang @Imperial College
 """
 
-from napari_sim_simulator.baseSIMulator import Base_simulator
+from napari_generic_simulator.baseSIMulator import Base_simulator
 import numpy as np
 
 
