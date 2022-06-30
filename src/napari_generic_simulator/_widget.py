@@ -175,8 +175,7 @@ class SIMulator():
         w5 = magicgui(self.show_otf, layout="vertical", auto_call=True)
         self.w = Container(widgets=[w1,w2, w3, w4, w5], labels=None)
 
-def SIMulator_widget(v):
-    viewer = v
+def SIMulator_widget(viewer: napari.Viewer):
     s = SIMulator(viewer)
     s.run()
     return s.w
