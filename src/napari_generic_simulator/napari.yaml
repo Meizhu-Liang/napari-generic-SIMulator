@@ -1,6 +1,5 @@
 name: napari-generic-SIMulator
 display_name: napari generic SIMulator
-
 contributions:
   commands:
     - id: napari-generic-SIMulator.make_simulator_widget
