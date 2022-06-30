@@ -7,4 +7,3 @@ def test_widget(make_napari_viewer, capsys):
 
     viewer = make_napari_viewer()
     simulator_widget = SIMulator_widget(viewer).wid
-    simulator_widget(viewer)
