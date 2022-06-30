@@ -6,5 +6,5 @@ from napari_generic_simulator import SIMulator_widget
 def test_widget(make_napari_viewer, capsys):
 
     viewer = make_napari_viewer()
-    simulator_widget = SIMulator_widget().wid
+    simulator_widget = SIMulator_widget(viewer).wid
     simulator_widget(viewer)
