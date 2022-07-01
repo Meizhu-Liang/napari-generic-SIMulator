@@ -1,4 +1,4 @@
-from napari_generic_simulator import SIMulator_widget
+from napari_generic_simulator import SIMulator
 
 
 # make_napari_viewer is a pytest fixture that returns a napari viewer object
@@ -6,4 +6,4 @@ from napari_generic_simulator import SIMulator_widget
 def test_widget(make_napari_viewer, capsys):
 
     viewer = make_napari_viewer()
-    simulator_widget = SIMulator_widget(viewer)
+    simulator_widget = SIMulator(viewer)
