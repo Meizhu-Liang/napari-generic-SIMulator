@@ -6,4 +6,4 @@ except ImportError:
 __author__ = "Meizhu Liang"
 __email__ = "meizhu.liang18@imperial.ac.uk"
 
-from ._widget import SIMulator_widget
+from ._widget import SIMulator
