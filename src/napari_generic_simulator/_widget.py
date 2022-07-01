@@ -2,7 +2,7 @@
 @authors: Meizhu Liang @Imperial College
 """
 
-from magicgui import magicgui, magic_factory
+from magicgui import magicgui
 from magicgui.widgets import Container
 from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp
@@ -31,8 +31,8 @@ class SIMulator(QWidget):
     frame-by-frame and a batch reconstruction to produce the super-resolved output.https://doi.org/10.1098/rsta.2020.0162
     This currently supports hexagonal SIM (1 angle, 7 phases) with three beams and that at right-angles.
     """
-    def __init__(self, viewer):
-        self.viewer = viewer
+    def __init__(self, viewer: 'napari.viewer.Viewer'):
+        self._viewer = viewer
         super().__init__()
         self.parameters()
         self.setup_ui()
@@ -45,8 +45,8 @@ class SIMulator(QWidget):
         self.add_magic_function(self.w, layout)
 
     def add_magic_function(self, function, _layout):
-        self.viewer.layers.events.inserted.connect(function.reset_choices)
-        self.viewer.layers.events.removed.connect(function.reset_choices)
+        self._viewer.layers.events.inserted.connect(function.reset_choices)
+        self._viewer.layers.events.removed.connect(function.reset_choices)
         _layout.addWidget(function.native)
 
     def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.IN_PLANE, Acceleration=list(Accel)[-1],
@@ -129,7 +129,7 @@ class SIMulator(QWidget):
         # self.viewer.add_image(img,
         #                       name=self.gen.write_name(basename=f'xy_{text}'),
         #                       colormap='twilight')
-        self.viewer.add_image(img)
+        self._viewer.add_image(img)
 
     def get_results(self):
         self.set_att()
@@ -140,7 +140,7 @@ class SIMulator(QWidget):
 
     def show_img(self):
         self.get_results()
-        self.viewer.add_image(data=self.re0, name='raw image stack')
+        self._viewer.add_image(data=self.re0, name='raw image stack')
 
     def show_raw_img_sum(self, show_raw_img_sum: bool=False):
         if show_raw_img_sum:
@@ -149,8 +149,8 @@ class SIMulator(QWidget):
                     print('To ensure calculate the raw images stack first.')
                 else:
                     try:
-                        self.viewer.add_image(self.re1, name='raw image sum along z axis')
-                        self.viewer.add_image(self.re2, name='raw image sum along x (or y) axis')
+                        self._viewer.add_image(self.re1, name='raw image sum along z axis')
+                        self._viewer.add_image(self.re2, name='raw image sum along x (or y) axis')
                     except Exception as e:
                         print(str(e))
 
@@ -161,7 +161,7 @@ class SIMulator(QWidget):
                     print('To ensure calculate the raw images stack before the psf')
                 else:
                     try:
-                        self.viewer.add_image(self.re3, name='PSF in x-y plane')
+                        self._viewer.add_image(self.re3, name='PSF in x-y plane')
                     except Exception as e:
                         print(e)
 
@@ -172,8 +172,8 @@ class SIMulator(QWidget):
                     print('To ensure calculate the raw images stack before the otf')
                 else:
                     try:
-                        self.viewer.add_image(self.re4, name='OTF in y-z plane')
-                        self.viewer.add_image(self.re5, name='OTF in x-z plane')
+                        self._viewer.add_image(self.re4, name='OTF in y-z plane')
+                        self._viewer.add_image(self.re5, name='OTF in x-z plane')
                     except Exception as e:
                         print(str(e))
 
