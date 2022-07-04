@@ -1,7 +1,6 @@
 """
 @authors: Meizhu Liang @Imperial College
 """
-
 from magicgui import magicgui
 from magicgui.widgets import Container
 from enum import Enum
