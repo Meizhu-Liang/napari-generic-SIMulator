@@ -18,7 +18,8 @@ except Exception as e:
 
 class Base_simulator:
 
-    axial = True
+    axial = None
+    circular = None
     use_cupy = True
     N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -70,55 +71,55 @@ class Base_simulator:
 
     def phase_tilts(self):
         """Generate phase tilts in frequency space"""
-
+        self._nsteps = self._phaseStep * self._angleStep
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
-        self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
         dkz = np.pi / self.zrange
+        self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
         self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
+
 
         if self.use_cupy:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
             self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
 
+
         print("Calculating pointwise phase tilts")
 
         start_time = time.time()
 
-        for self.xx in range(self._nsteps):
-            if self.use_cupy:
-                pxyz = cp.zeros((self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-            else:
-                pxyz = np.zeros((self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-            for i in range(self.npoints):
-                self.x = self.points[i, 0]
-                self.y = self.points[i, 1]
-                z = self.points[i, 2] + self.dz / self._nsteps * (self.xx - 1)
-                self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
-                self.p1 = -self.xx * 2 * np.pi / self._nsteps
-                self.p2 = self.xx * 4 * np.pi / self._nsteps
-                self._ill()
-                if self.axial:  # axial polarisation normalised to peak intensity of 1
-                    ill = self._illAx
-                else:  # in plane polarisation normalised to peak intensity of 1
-                    ill = self._illIp
-                if self.use_cupy:
-                    px = cp.array(np.exp(1j * np.single(self.x * self.kxy)))
-                    py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
-                    pz = cp.array(np.exp(1j * np.single(z * self.kz)) * ill)
-                    pxy = cp.array(px[:, np.newaxis] * py)
-                    for ii in range(len(self.kz)):
-                        pxyz[ii, :, :] = pxy * pz[ii]
-                    self.phasetilts[self.xx, :, :, :] = self.phasetilts[self.xx, :, :, :] + pxyz
-                else:
-                    px = np.exp(1j * np.single(self.x * self.kxy))
-                    py = np.exp(1j * np.single(self.y * self.kxy))
-                    pz = np.exp(1j * np.single(z * self.kz)) * ill
-                    pxy = px[:, np.newaxis] * py
-                    for ii in range(len(self.kz)):
-                        pxyz[ii, :, :] = pxy * pz[ii]
-                    self.phasetilts[self.xx, :, :, :] = self.phasetilts[self.xx, :, :, :] + pxyz
+        for astep in range(self._angleStep):
+            for pstep in range(self._phaseStep):
+                for i in range(self.npoints):
+                    self.x = self.points[i, 0]
+                    self.y = self.points[i, 1]
+                    z = self.points[i, 2] + self.dz / self._nsteps * (pstep + self._angleStep * astep)
+                    self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
+                    self.p1 = pstep * 2 * np.pi / self._phaseStep
+                    self.p2 = -pstep * 4 * np.pi / self._phaseStep
+                    self._ill() # gets illumination from the child class
+                    if self.axial:  # axial polarisation normalised to peak intensity of 1
+                        ill = self._illAx
+                    elif self.circular:  # in plane polarisation normalised to peak intensity of 1
+                        ill = self._illCi
+                    else:
+                        ill = self._illIp
+                    if self.use_cupy:
+                        pxyz = cp.zeros((self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+                        px = cp.array(np.exp(1j * np.single(self.x * self.kxy)))
+                        py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
+                        pz = cp.array(np.exp(1j * np.single(z * self.kz)) * ill)
+                        pxy = cp.array(px[:, np.newaxis] * py)
+                    else:
+                        pxyz = np.zeros((self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+                        px = np.exp(1j * np.single(self.x * self.kxy))
+                        py = np.exp(1j * np.single(self.y * self.kxy))
+                        pz = np.exp(1j * np.single(z * self.kz)) * ill
+                        pxy = px[:, np.newaxis] * py
+                    for l in range(len(self.kz)):
+                        pxyz[l, :, :] = pxy * pz[l]
+                    self.phasetilts[pstep + self._angleStep * astep, :, :, :] = self.phasetilts[pstep + self._angleStep * astep, :, :, :] + pxyz
 
         elapsed_time = time.time() - start_time
         print(f'Phase tilts calculation:  {elapsed_time:.3f}s')
@@ -186,9 +187,11 @@ class Base_simulator:
 
         # Save generated images
         if self.axial:
-            stackfilename = "Raw_img_stack90_512_axial.tif"
+            stackfilename = "Raw_img_stack_512_axial.tif"
+        elif self.circular:
+            stackfilename = "Raw_img_stack_512_circular.tif"
         else:
-            stackfilename = "Raw_img_stack90_512_inplane.tif"
+            stackfilename = "Raw_img_stack_512_inplane.tif"
         if self.use_cupy:
             tifffile.imwrite(stackfilename, cp.asnumpy(img))
         else:

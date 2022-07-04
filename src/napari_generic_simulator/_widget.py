@@ -7,6 +7,7 @@ from magicgui.widgets import Container
 from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
+from napari_generic_simulator.conSIMulator import ConSim_simulator
 from qtpy.QtWidgets import QWidget, QVBoxLayout
 
 class Sim_mode(Enum):
@@ -17,6 +18,7 @@ class Sim_mode(Enum):
 class Pol(Enum):
     IN_PLANE = 0
     AXIAL = 1
+    CIRCULAR = 2
 
 class Accel(Enum):
     USE_NUMPY = 0
@@ -76,12 +78,14 @@ class SIMulator(QWidget):
         elif self.SIM_mode ==Sim_mode.HEXSIM_RIGHT_ANGLES.value:
             self.sim = RightHexSim_simulator()
         elif self.SIM_mode == Sim_mode.SIM_CONV.value:
-            pass
+            self.sim = ConSim_simulator()
 
         if self.Polarisation == Pol.IN_PLANE.value:
-            self.sim.axial = False
+            pass
         elif self.Polarisation == Pol.AXIAL.value:
             self.sim.axial = True
+        elif self.Polarisation == Pol.CIRCULAR.value:
+            self.sim.circular = True
 
         if self.Acceleration == Accel.USE_NUMPY.value:
             self.sim.use_cupy = False
