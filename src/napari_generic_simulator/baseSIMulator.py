@@ -200,6 +200,6 @@ class Base_simulator:
 
         # Return img_sum_z, img_sum_x, psf_xy, otf_yz, otf_xz, otf_sum_xy (otf sum in x-y plane)
         return img, img_sum_z, img_sum_x, psf[int(self.Nzn / 2 + 10), :, :], np.log(aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001), \
-               np.log(aotf[:, :, int(self.Nn / 2)].squeeze()) + 0.0001
+               np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
 
 

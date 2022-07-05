@@ -25,18 +25,17 @@ class HexSim_simulator(Base_simulator):
     def _ill(self):
         """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
         # Circular polarisation
-        self._illCi = 1 + 1 / 6 * np.cos(self.ph * (-np.sqrt(3) * self.x - self.y) / 2 + self.p2) \
-                      + 1 / 6 * np.cos(self.ph * (-np.sqrt(3) * self.x + self.y) / 2 + self.p1) \
-                      + 1 / 6 * np.cos(self.ph * self.y + self.p1 - self.p2)
+        self._illCi = 1 + 1 / 6 * (np.cos(self.ph * (-np.sqrt(3) * self.x - self.y) / 2 + self.p2) \
+                      + np.cos(self.ph * (-np.sqrt(3) * self.x + self.y) / 2 + self.p1) \
+                      + np.cos(self.ph * self.y + self.p1 - self.p2))
         # Axial polarisation
-        self._illAx = 1 + 2 / 3 * np.cos(self.ph * self.y + self.p1 - self.p2) \
-                      + 2 / 3 * np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
-                      + 2 / 3 * np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2)
+        self._illAx = 1 + 2 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) \
+                      + np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
+                      + np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2))
         # In-plane polarisation
-        self._illIp = 1 - 1 / 3 * np.cos(self.ph * self.y + self.p1 - self.p2) \
-                      - 1 / 3 * np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
-                      - 1 / 3 * np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2)
-
+        self._illIp = 1 - 1 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) \
+                      - np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
+                      - np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2))
 
 class RightHexSim_simulator(Base_simulator):
     '''

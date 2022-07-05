@@ -250,8 +250,7 @@ class HexSIM_simulator():
 
         # Return img_sum_z, img_sum_x, psf_xy, otf_yz, otf_xz, otf_sum_xy (otf sum in x-y plane)
         return img, img_sum_z, img_sum_x, psf[int(self.Nzn / 2 + 10), :, :], np.log(aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001), \
-               np.log(aotf[:, :, int(self.Nn / 2)].squeeze()) + 0.0001
-
+               np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
 
 if __name__ == '__main__':
     t = HexSIM_simulator(None, 0, 1, 512, 5.5, 60, 1.1, 1.33, 0.52, 500, 7.0,
