@@ -19,7 +19,7 @@ class ConSim_simulator(Base_simulator):
         self._phaseStep = 3
         self._angleStep = 3
         super().__init__()
-        self._eta = self.n / self.NA
+        self.eta = self.n / self.NA
 
     def _ill(self):
         """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
