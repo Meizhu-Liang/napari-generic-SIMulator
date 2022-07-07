@@ -10,16 +10,16 @@ import tifffile
 
 try:
     import cupy as cp
+
     print('cupy imported')
     import_cp = True
 except Exception as e:
     print(str(e))
     import_cp = False
 
-class Base_simulator:
 
-    axial = None
-    circular = None
+class Base_simulator:
+    pol = None
     use_cupy = True
     N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -58,7 +58,6 @@ class Base_simulator:
         dz = dzn
 
     def point_cloud(self):
-        print("Calculating point cloud")
 
         rad = 10  # radius of sphere of points
         # Multiply the points several timesto get the enough number
@@ -68,6 +67,7 @@ class Base_simulator:
         points_sphere = pointsxn[pointsxnr < (rad ** 2), :]  # simulate spheres from cubes
         self.points = points_sphere[(range(self.npoints)), :]
         self.points[:, 2] = self.points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
+        # return "Calculating point cloud"
 
     def phase_tilts(self):
         """Generate phase tilts in frequency space"""
@@ -78,30 +78,27 @@ class Base_simulator:
         self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
         self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
 
-
         if self.use_cupy:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
             self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-
-
-        print("Calculating pointwise phase tilts")
 
         start_time = time.time()
 
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
                 for i in range(self.npoints):
+                    f = pstep + self._angleStep * astep  # index of the step
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
-                    z = self.points[i, 2] + self.dz / self._nsteps * (pstep + self._angleStep * astep)
+                    z = self.points[i, 2] + self.dz / self._nsteps * (f)
                     self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
-                    self._ill() # gets illumination from the child class
-                    if self.axial:  # axial polarisation normalised to peak intensity of 1
+                    self._ill()  # gets illumination from the child class
+                    if self.pol == 'axial':
                         ill = self._illAx
-                    elif self.circular:  # in plane polarisation normalised to peak intensity of 1
+                    elif self.pol == 'circular':
                         ill = self._illCi
                     else:
                         ill = self._illIp
@@ -119,41 +116,41 @@ class Base_simulator:
                         pxy = px[:, np.newaxis] * py
                     for l in range(len(self.kz)):
                         pxyz[l, :, :] = pxy * pz[l]
-                    self.phasetilts[pstep + self._angleStep * astep, :, :, :] = self.phasetilts[pstep + self._angleStep * astep, :, :, :] + pxyz
-
-        elapsed_time = time.time() - start_time
-        print(f'Phase tilts calculation:  {elapsed_time:.3f}s')
+                    self.phasetilts[f, :, :, :] = self.phasetilts[f, :, :, :] + pxyz
+        self.elapsed_time = time.time() - start_time
 
     def raw_image_stack(self):
         # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
-
         self.point_cloud()
+        yield "Point cloud calculated"
         self.phase_tilts()
-        print("Calculating 3d psf")
+
+        # Calculating psf
         nz = 0
         psf = np.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
-
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
             c = (np.exp(
                 1j * (z * self.n * 2 * np.pi / self.wavelength *
                       np.sqrt((1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2))))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
-
         # Normalised so power in resampled psf(see later on) is unity in focal plane
         psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
+        self.psf_z0 = psf[int(self.Nzn / 2 + 10), :, :]  # psf at z=0
+        yield "psf calculated"
 
-        print("Calculating 3d otf")
-        psf = psf
+        # Calculating 3d otf
         otf = np.fft.fftn(psf)
-        aotf = abs(np.fft.fftshift(otf))
+        aotf = abs(np.fft.fftshift(otf))  # absolute otf
         m = max(aotf.flatten())
         aotf_z = []
         for x in range(self.Nzn):
             aotf_z.append(np.sum(aotf[x]))
+        self.aotf_x = np.log(aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
+        self.aotf_y = np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+        yield "3d otf calculated"
 
-        print("Calculating raw image stack")
         if self.use_cupy:
             img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         else:
@@ -161,45 +158,41 @@ class Base_simulator:
         for i in range(self._nsteps):
             if self.use_cupy:
                 ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[cp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = cp.abs(cp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+                img[cp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = cp.abs(
+                    cp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
             else:
                 ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = np.abs(np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = np.abs(
+                    np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
         # OK to use abs here as signal should be all positive.
         # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
         # But should reduction in sampling be allowed here(Nz < Nzn)?
 
         # raw image stack
         if self.use_cupy:
-            img = cp.asnumpy(img)
+            self.img = cp.asnumpy(img)
+        else:
+            self.img = img
 
         # raw image sum along z axis
         if self.use_cupy:
-            img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
+            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
         else:
-            img_sum_z = np.sum(img, axis=0)
+            self.img_sum_z = np.sum(img, axis=0)
 
         # raw image sum along x (or y) axis"
         if self.use_cupy:
-            img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
+            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
         else:
-            img_sum_x = np.sum(img, axis=1)
+            self.img_sum_x = np.sum(img, axis=1)
 
         # Save generated images
-        if self.axial:
-            stackfilename = "Raw_img_stack_512_axial.tif"
-        elif self.circular:
-            stackfilename = "Raw_img_stack_512_circular.tif"
-        else:
-            stackfilename = "Raw_img_stack_512_inplane.tif"
+        stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
         if self.use_cupy:
             tifffile.imwrite(stackfilename, cp.asnumpy(img))
         else:
             tifffile.imwrite(stackfilename, img)
         print('Raw image stack saved')
 
-        # Return img_sum_z, img_sum_x, psf_xy, otf_yz, otf_xz, otf_sum_xy (otf sum in x-y plane)
-        return img, img_sum_z, img_sum_x, psf[int(self.Nzn / 2 + 10), :, :], np.log(aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001), \
-               np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
-
+        yield f'Phase tilts calculation:  {self.elapsed_time:3f}s'
 

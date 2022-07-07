@@ -7,7 +7,8 @@ from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from napari_generic_simulator.conSIMulator import ConSim_simulator
-from qtpy.QtWidgets import QWidget, QVBoxLayout
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLineEdit
+from napari.qt.threading import thread_worker
 
 class Sim_mode(Enum):
     HEXSIM = 0
@@ -44,6 +45,9 @@ class SIMulator(QWidget):
         layout = QVBoxLayout()
         self.setLayout(layout)
         self.add_magic_function(self.w, layout)
+        self.messageBox = QLineEdit()
+        layout.addWidget(self.messageBox, stretch=True)
+        self.messageBox.setText('Messages')
 
     def add_magic_function(self, function, _layout):
         self._viewer.layers.events.inserted.connect(function.reset_choices)
@@ -80,11 +84,11 @@ class SIMulator(QWidget):
             self.sim = ConSim_simulator()
 
         if self.Polarisation == Pol.IN_PLANE.value:
-            pass
+            self.sim.pol = 'in-plane'
         elif self.Polarisation == Pol.AXIAL.value:
-            self.sim.axial = True
+            self.sim.pol = 'axial'
         elif self.Polarisation == Pol.CIRCULAR.value:
-            self.sim.circular = True
+            self.sim.circular = 'circular'
 
         if self.Acceleration == Accel.USE_NUMPY.value:
             self.sim.use_cupy = False
@@ -123,66 +127,63 @@ class SIMulator(QWidget):
         if hasattr(self, 'sim'):
             delattr(self, 'sim')
 
-    def show_point_cloud(self):
-        '''
-        Calculates the 3D PSF and shows it as a stack
-        '''
-        img = self.sim.point_cloud
+    def show_img(self):
+        self._viewer.add_image(data=self.sim.img, name='raw image stack')
 
-        # self.viewer.add_image(img,
-        #                       name=self.gen.write_name(basename=f'xy_{text}'),
-        #                       colormap='twilight')
-        self._viewer.add_image(img)
-
+    @thread_worker(connect={"returned": show_img})
     def get_results(self):
         self.set_att()
-        self.re0, self.re1, self.re2, self.re3, self.re4, self.re5 = self.sim.raw_image_stack()
-        self.used_par_list = [self.SIM_mode, self.Polarisation,self.Acceleration, self.N, self.pixel_size,
+        t = self.sim.raw_image_stack()
+        try:
+            while True:
+                self.messageBox.setText(next(t))
+                # print(next(t))
+        except Exception as e:
+            print(e)
+        self.used_par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
                               self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
                               self.fwhmz]
+        return self
 
-    def show_img(self):
-        self.get_results()
-        self._viewer.add_image(data=self.re0, name='raw image stack')
 
     def show_raw_img_sum(self, show_raw_img_sum: bool=False):
         if show_raw_img_sum:
-            if hasattr(self, 're1'):
+            if hasattr(self.sim, 'img_sum_z'):
                 if self.used_par_list != self.par_list:
-                    print('To ensure calculate the raw images stack first.')
+                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
                 else:
                     try:
-                        self._viewer.add_image(self.re1, name='raw image sum along z axis')
-                        self._viewer.add_image(self.re2, name='raw image sum along x (or y) axis')
+                        self._viewer.add_image(self.sim.img_sum_z, name='raw image sum along z axis')
+                        self._viewer.add_image(self.sim.img_sum_x, name='raw image sum along x (or y) axis')
                     except Exception as e:
                         print(str(e))
 
     def show_psf(self, show_3D_psf: bool=False):
         if show_3D_psf:
-            if hasattr(self, 're3'):
+            if hasattr(self.sim, 'psf_z0'):
                 if self.used_par_list != self.par_list:
-                    print('To ensure calculate the raw images stack before the psf')
+                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
                 else:
                     try:
-                        self._viewer.add_image(self.re3, name='PSF in x-y plane')
+                        self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
                     except Exception as e:
                         print(e)
 
     def show_otf(self, show_3D_otf: bool=False):
         if show_3D_otf:
-            if hasattr(self, 're4'):
+            if hasattr(self.sim, 'aotf_x'):
                 if self.used_par_list != self.par_list:
-                    print('To ensure calculate the raw images stack before the otf')
+                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
                 else:
                     try:
-                        self._viewer.add_image(self.re4, name='OTF in y-z plane')
-                        self._viewer.add_image(self.re5, name='OTF in x-z plane')
+                        self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
+                        self._viewer.add_image(self.sim.aotf_y, name='OTF perpendicular to y')
                     except Exception as e:
                         print(str(e))
 
     def wrap_widgets(self):
         w1 = magicgui(self.parameters, layout="vertical", auto_call=True)
-        w2 = magicgui(self.show_img, call_button="Calculate raw image stack", auto_call=False)
+        w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)
         w4 = magicgui(self.show_psf, layout="vertical", auto_call=True)
         w5 = magicgui(self.show_otf, layout="vertical", auto_call=True)
