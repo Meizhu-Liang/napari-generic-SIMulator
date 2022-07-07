@@ -7,8 +7,11 @@
 [![codecov](https://codecov.io/gh/Meizhu-Liang/napari-generic-SIMulator/branch/main/graph/badge.svg)](https://codecov.io/gh/Meizhu-Liang/napari-generic-SIMulator)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-generic-SIMulator)](https://napari-hub.org/plugins/napari-generic-SIMulator)
 
-A simple plugin to use with napari to simulate raw image stacks in Structured illumination microscopy (SIM) with napari.
-
+A napari plugin to simulate raw-image stacks of Structured illumination microscopy (SIM) with light sheet. The simulation can be GPU-accelerated if cupy is installed.   
+Currently applies to:
+- conventional 2-beam SIM data with 3 angles and 3 phases
+- 3-beam hexagonal SIM data with 7 phases 
+- 3-beam hexagonal SIM data with 7 phases at right-angles
 ----------------------------------
 
 This [napari] plugin was generated with [Cookiecutter] using [@napari]'s [cookiecutter-napari-plugin] template.
