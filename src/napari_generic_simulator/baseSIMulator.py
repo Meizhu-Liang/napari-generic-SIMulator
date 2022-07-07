@@ -85,9 +85,17 @@ class Base_simulator:
 
         start_time = time.time()
 
+        itcount = 0
+        total_its = self._angleStep * self._phaseStep * self.npoints
+        lastProg = -1
+
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
                 for i in range(self.npoints):
+                    prog = (100 * itcount) // total_its
+                    if prog > lastProg:
+                        yield f'Phase tilts calculation: {prog:.1f}% done'
+                    itcount += 1
                     f = pstep + self._angleStep * astep  # index of the step
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
@@ -118,12 +126,15 @@ class Base_simulator:
                         pxyz[l, :, :] = pxy * pz[l]
                     self.phasetilts[f, :, :, :] = self.phasetilts[f, :, :, :] + pxyz
         self.elapsed_time = time.time() - start_time
+        yield f'Phase tilts calculation:  {self.elapsed_time:3f}s'
 
     def raw_image_stack(self):
         # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
         self.point_cloud()
         yield "Point cloud calculated"
-        self.phase_tilts()
+
+        for msg in self.phase_tilts():
+            yield(msg)
 
         # Calculating psf
         nz = 0
@@ -194,5 +205,5 @@ class Base_simulator:
             tifffile.imwrite(stackfilename, img)
         print('Raw image stack saved')
 
-        yield f'Phase tilts calculation:  {self.elapsed_time:3f}s'
+        yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
