@@ -126,7 +126,7 @@ class Base_simulator:
                         pxyz[l, :, :] = pxy * pz[l]
                     self.phasetilts[f, :, :, :] = self.phasetilts[f, :, :, :] + pxyz
         self.elapsed_time = time.time() - start_time
-        yield f'Phase tilts calculation:  {self.elapsed_time:3f}s'
+        yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
     def raw_image_stack(self):
         # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
