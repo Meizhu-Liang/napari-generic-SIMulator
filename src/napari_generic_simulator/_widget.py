@@ -56,7 +56,7 @@ class SIMulator(QWidget):
 
     def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.IN_PLANE, Acceleration=list(Accel)[-1],
                    N: int = 512, pixel_size: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
-                   wavelength: float = 0.52, npoints: int = 500, zrange: float = 7.0, dz: float = 0.4,
+                   wavelength: float = 0.52, npoints: int = 500, zrange: float = 7.0, dz: float = 0.35,
                    fwhmz: float = 3.0):
         self.SIM_mode = SIM_mode.value
         self.Polarisation = Polarisation.value

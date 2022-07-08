@@ -24,38 +24,40 @@ class Base_simulator:
     N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
     magnification = 60  # Objective magnification
-    dx = pixel_size / magnification  # Sampling in lateral plane at the sample in um
     NA = 1.1  # Numerical aperture at sample
     n = 1.33  # Refractive index at sample
     wavelength = 0.52  # Wavelength in um
     npoints = 500  # Number of random points
-    seed(1234)  # set random number generator seed
-    eta = n / NA  # right-angle Hex SIM
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
-    sigmaz = fwhmz / 2.355
-    dxn = wavelength / (4 * NA)  # 2 * Nyquist frequency in x and y.
-    Nn = int(np.ceil(N * dx / dxn / 2) * 2)  # Number of points at Nyquist sampling, even number
-    dxn = N * dx / Nn  # correct spacing
-    res = wavelength / (2 * NA)
-    oversampling = res / dxn  # factor by which pupil plane oversamples the coherent psf data
-    dk = oversampling / (Nn / 2)  # Pupil plane sampling
-    kx, ky = np.meshgrid(np.linspace(-dk * Nn / 2, dk * Nn / 2 - dk, Nn),
-                         np.linspace(-dk * Nn / 2, dk * Nn / 2 - dk, Nn))
-    kr = np.sqrt(kx ** 2 + ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
-    csum = sum(sum((kr < 1)))  # normalise by csum so peak intensity is 1
+    seed(1234)  # set random number generator seed
 
-    alpha = np.arcsin(NA / n)
-    # Nyquist sampling in z, reduce by 10 % to account for gaussian light sheet
-    dzn = 0.8 * wavelength / (2 * n * (1 - np.cos(alpha)))
-    Nz = 2 * np.ceil(zrange / dz)
-    dz = 2 * zrange / Nz
-    Nzn = int(2 * np.ceil(zrange / dzn))
-    dzn = 2 * zrange / Nzn
-    if Nz < Nzn:
-        Nz = Nzn
-        dz = dzn
+    def initialise(self):
+        self.eta = self.n / self.NA  # right-angle Hex SIM
+        self.sigmaz = self.fwhmz / 2.355
+        self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
+        self.dxn = self.wavelength / (4 * self.NA)  # 2 * Nyquist frequency in x and y.
+        self.Nn = int(np.ceil(self.N * self.dx / self.dxn / 2) * 2)  # Number of points at Nyquist sampling, even number
+        self.dxn = self.N * self.dx / self.Nn  # correct spacing
+        self.res = self.wavelength / (2 * self.NA)
+        oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
+        self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
+        self.kx, self.ky = np.meshgrid(np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
+                             np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
+        self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
+        self.csum = sum(sum((self.kr < 1)))  # normalise by csum so peak intensity is 1
+
+        self.alpha = np.arcsin(self.NA / self.n)
+        # Nyquist sampling in z, reduce by 10 % to account for gaussian light sheet
+        self.dzn = 0.8 * self.wavelength / (2 * self.n * (1 - np.cos(self.alpha)))
+        self.Nz = int(2 * np.ceil(self.zrange / self.dz))
+        self.dz = 2 * self.zrange / self.Nz
+        self.Nzn = int(2 * np.ceil(self.zrange / self.dzn))
+        self.dzn = 2 * self.zrange / self.Nzn
+        if self.Nz < self.Nzn:
+            self.Nz = self.Nzn
+            self.dz = self.dzn
 
     def point_cloud(self):
 
@@ -125,6 +127,7 @@ class Base_simulator:
 
     def raw_image_stack(self):
         # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
+        self.initialise()
         self.point_cloud()
         yield "Point cloud calculated"
 
