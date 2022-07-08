@@ -94,6 +94,7 @@ class Base_simulator:
                 for i in range(self.npoints):
                     prog = (100 * itcount) // total_its
                     if prog > lastProg:
+                        lastProg = prog
                         yield f'Phase tilts calculation: {prog:.1f}% done'
                     itcount += 1
                     f = pstep + self._angleStep * astep  # index of the step
@@ -111,20 +112,14 @@ class Base_simulator:
                     else:
                         ill = self._illIp
                     if self.use_cupy:
-                        pxyz = cp.zeros((self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-                        px = cp.array(np.exp(1j * np.single(self.x * self.kxy)))
+                        px = cp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
                         py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
-                        pz = cp.array(np.exp(1j * np.single(z * self.kz)) * ill)
-                        pxy = cp.array(px[:, np.newaxis] * py)
+                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
                     else:
-                        pxyz = np.zeros((self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-                        px = np.exp(1j * np.single(self.x * self.kxy))
+                        px = np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis]
                         py = np.exp(1j * np.single(self.y * self.kxy))
-                        pz = np.exp(1j * np.single(z * self.kz)) * ill
-                        pxy = px[:, np.newaxis] * py
-                    for l in range(len(self.kz)):
-                        pxyz[l, :, :] = pxy * pz[l]
-                    self.phasetilts[f, :, :, :] = self.phasetilts[f, :, :, :] + pxyz
+                        pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
+                    self.phasetilts[f, :, :, :] += (px * py) * pz
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
