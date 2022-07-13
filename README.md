@@ -7,11 +7,18 @@
 [![codecov](https://codecov.io/gh/Meizhu-Liang/napari-generic-SIMulator/branch/main/graph/badge.svg)](https://codecov.io/gh/Meizhu-Liang/napari-generic-SIMulator)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-generic-SIMulator)](https://napari-hub.org/plugins/napari-generic-SIMulator)
 
-A napari plugin to simulate raw-image stacks of Structured illumination microscopy (SIM) with light sheet. The simulation can be GPU-accelerated if cupy is installed.   
+A napari plugin to simulate raw-image stacks of Structured illumination microscopy (SIM) with light sheet. 
+
+The simulation is originally based on the paper <strong>GPU-accelerated real-time reconstruction in Python of three-dimensional datasets from structured illumination microscopy with hexagonal patterns</strong> by
+Hai Gong, Wenjun Guo and Mark A. A. Neil (https://doi.org/10.1098/rsta.2020.0162). 
+
+The calculation can be GPU-accelerated if cupy is installed.  
+
 Currently applies to:
 - conventional 2-beam SIM data with 3 angles and 3 phases
-- 3-beam hexagonal SIM data with 7 phases 
+- 3-beam hexagonal SIM data with 7 phases, as described in the paper
 - 3-beam hexagonal SIM data with 7 phases at right-angles
+
 ----------------------------------
 
 This [napari] plugin was generated with [Cookiecutter] using [@napari]'s [cookiecutter-napari-plugin] template.
@@ -36,7 +43,30 @@ To install latest development version :
 
     pip install git+https://github.com/Meizhu-Liang/napari-generic-SIMulator.git
 
+## Usage
 
+1) Import napari and create the viewer. The simple code is showed below:
+
+    ***import napari***
+       
+    ***viewer = napari.Viewer()***
+
+    ***napari.run()***
+
+
+2) Launch the widget in ***Plugin***
+    ![img.png](img.png)
+
+
+3) Adjust the parameters in the widget and calculate the raw-image stack.
+    ![img_2.png](img_2.png)
+
+
+4) The sum, psf and otf can be showed. Note the all of these correspond the generated raw-image stack, so the raw images should be recalculated if the parameters change.
+    ![img_3.png](img_3.png)
+
+
+5) The raw image stacks can be then processed by napari-sim-processor (https://www.napari-hub.org/plugins/napari-sim-processor).
 ## Contributing
 
 Contributions are very welcome. Tests can be run with [tox], please ensure

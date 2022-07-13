@@ -137,7 +137,6 @@ class SIMulator(QWidget):
         try:
             while True:
                 self.messageBox.setText(next(t))
-                # print(next(t))
         except Exception as e:
             print(e)
         self.used_par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,

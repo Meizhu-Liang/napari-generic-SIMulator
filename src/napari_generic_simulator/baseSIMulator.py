@@ -99,10 +99,10 @@ class Base_simulator:
                         lastProg = prog
                         yield f'Phase tilts calculation: {prog:.1f}% done'
                     itcount += 1
-                    f = pstep + self._angleStep * astep  # index of the step
+                    isteps = pstep + self._angleStep * astep  # index of the steps
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
-                    z = self.points[i, 2] + self.dz / self._nsteps * (f)
+                    z = self.points[i, 2] + self.dz / self._nsteps * (isteps)
                     self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
@@ -121,7 +121,7 @@ class Base_simulator:
                         px = np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis]
                         py = np.exp(1j * np.single(self.y * self.kxy))
                         pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
-                    self.phasetilts[f, :, :, :] += (px * py) * pz
+                    self.phasetilts[isteps, :, :, :] += (px * py) * pz
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
@@ -132,7 +132,7 @@ class Base_simulator:
         yield "Point cloud calculated"
 
         for msg in self.phase_tilts():
-            yield(msg)
+            yield msg
 
         # Calculating psf
         nz = 0
@@ -141,7 +141,7 @@ class Base_simulator:
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
             c = (np.exp(
                 1j * (z * self.n * 2 * np.pi / self.wavelength *
-                      np.sqrt((1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2))))) * pupil
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
