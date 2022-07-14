@@ -4,7 +4,7 @@
 from magicgui import magicgui
 from magicgui.widgets import Container
 from enum import Enum
-from napari_generic_simulator.baseSIMulator import import_cp
+from napari_generic_simulator.baseSIMulator import import_cp, import_torch, torch_GPU
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from napari_generic_simulator.conSIMulator import ConSim_simulator
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLineEdit
@@ -24,7 +24,10 @@ class Accel(Enum):
     USE_NUMPY = 0
     if import_cp:
         USE_CUPY = 1
-    # USE_TORCH = 3
+    if import_torch:
+        USE_TORCH_CPU = 2
+        if torch_GPU:
+            USE_TORCH_GPU = 3
 
 class SIMulator(QWidget):
     """
@@ -54,7 +57,7 @@ class SIMulator(QWidget):
         self._viewer.layers.events.removed.connect(function.reset_choices)
         _layout.addWidget(function.native)
 
-    def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.IN_PLANE, Acceleration=list(Accel)[-1],
+    def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.AXIAL, Acceleration=list(Accel)[-1],
                    N: int = 512, pixel_size: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
                    wavelength: float = 0.52, npoints: int = 500, zrange: float = 7.0, dz: float = 0.35,
                    fwhmz: float = 3.0):
@@ -84,19 +87,22 @@ class SIMulator(QWidget):
             self.sim = ConSim_simulator()
 
         if self.Polarisation == Pol.IN_PLANE.value:
-            self.sim.pol = 'in-plane'
+            self.sim.pol = 0
         elif self.Polarisation == Pol.AXIAL.value:
-            self.sim.pol = 'axial'
+            self.sim.pol = 1
         elif self.Polarisation == Pol.CIRCULAR.value:
-            self.sim.circular = 'circular'
+            self.sim.circular = 2
 
         if self.Acceleration == Accel.USE_NUMPY.value:
-            self.sim.use_cupy = False
-        elif Accel.USE_CUPY:
-            self.sim.use_cupy = True
-            if not import_cp:
-                print('No cupy present')
-                self.sim.use_cupy = False
+            self.sim.acc = 0
+        elif self.Acceleration == Accel.USE_CUPY.value:
+            self.sim.acc = 1
+        elif self.Acceleration == Accel.USE_TORCH_CPU.value:
+            self.sim.acc = 2
+            self.sim.tdev = 'cpu'
+        elif self.Acceleration == Accel.USE_TORCH_GPU.value:
+            self.sim.acc = 3
+            self.sim.tdev = 'cuda'
 
         self.sim.N = self.N
         self.sim.pixel_size = self.pixel_size

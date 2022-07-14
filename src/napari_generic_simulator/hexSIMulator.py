@@ -60,4 +60,11 @@ class RightHexSim_simulator(Base_simulator):
 
 
 if __name__ == '__main__':
-    tt = HexSim_simulator()
+    s = HexSim_simulator()
+    s.acc = 3
+    t = s.raw_image_stack()
+    try:
+        while True:
+            print(next(t))
+    except Exception as e:
+        print(e)

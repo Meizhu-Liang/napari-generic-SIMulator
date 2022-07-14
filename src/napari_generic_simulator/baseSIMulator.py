@@ -10,17 +10,29 @@ import tifffile
 
 try:
     import cupy as cp
-
     print('cupy imported')
     import_cp = True
 except Exception as e:
     print(str(e))
     import_cp = False
 
+try:
+    import torch
+    print('torch imported')
+    import_torch = True
+    if torch.has_cuda:
+        torch_GPU = True
+    else:
+        torch_GPU = False
+except Exception as e:
+    print(str(e))
+    import_torch = False
 
 class Base_simulator:
-    pol = None
-    use_cupy = True
+    pol = None  # polarisation
+    acc = None  # acceleration
+    tdev = None
+    _tdev = None
     N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
     magnification = 60  # Objective magnification
@@ -58,6 +70,11 @@ class Base_simulator:
         if self.Nz < self.Nzn:
             self.Nz = self.Nzn
             self.dz = self.dzn
+        if self.tdev == 'cpu':
+            self._tdev = torch.device('cpu')
+        elif self.tdev == 'cuda':
+            self._tdev = torch.device('cuda')
+
 
     def point_cloud(self):
 
@@ -69,7 +86,6 @@ class Base_simulator:
         points_sphere = pointsxn[pointsxnr < (rad ** 2), :]  # simulate spheres from cubes
         self.points = points_sphere[(range(self.npoints)), :]
         self.points[:, 2] = self.points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
-        # return "Calculating point cloud"
 
     def phase_tilts(self):
         """Generate phase tilts in frequency space"""
@@ -80,10 +96,12 @@ class Base_simulator:
         self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
         self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
 
-        if self.use_cupy:
+        if self.acc == 0:
+            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+        elif self.acc == 1:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
-            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+            self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64, device=self._tdev)
 
         start_time = time.time()
 
@@ -107,21 +125,29 @@ class Base_simulator:
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
                     self._ill()  # gets illumination from the child class
-                    if self.pol == 'axial':
+                    if self.pol == 1:
                         ill = self._illAx
-                    elif self.pol == 'circular':
+                    elif self.pol == 2:
                         ill = self._illCi
                     else:
                         ill = self._illIp
-                    if self.use_cupy:
-                        px = cp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
-                        py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
-                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
-                    else:
+                    if self.acc == 0:
                         px = np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis]
                         py = np.exp(1j * np.single(self.y * self.kxy))
                         pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
-                    self.phasetilts[isteps, :, :, :] += (px * py) * pz
+                        self.phasetilts[isteps, :, :, :] += (px * py) * pz
+                    elif self.acc == 1:
+                        px = cp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
+                        py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
+                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
+                        self.phasetilts[isteps, :, :, :] += (px * py) * pz
+                    else:
+                        px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
+                        py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
+                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
+                                          device=self._tdev)
+                        self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
+
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
@@ -156,52 +182,59 @@ class Base_simulator:
         aotf_z = []
         for x in range(self.Nzn):
             aotf_z.append(np.sum(aotf[x]))
-        self.aotf_x = np.log(aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
+        self.aotf_x = np.log(
+            aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
         self.aotf_y = np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
-        if self.use_cupy:
+        if self.acc == 0:
+            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+        elif self.acc == 1:
             img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         else:
-            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+            img =torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
+
         for i in range(self._nsteps):
-            if self.use_cupy:
+            if self.acc == 0:
+                ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = abs(
+                    np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+            elif self.acc == 1:
                 ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
                 img[cp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = cp.abs(
                     cp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
             else:
-                ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = np.abs(
-                    np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+                ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev), ) * self.phasetilts[i, :, :, :]
+                img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
+                    torch.fft.ifftn(ootf, (self.Nz, self.N, self.N)))).to(torch.float)
         # OK to use abs here as signal should be all positive.
         # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
         # But should reduction in sampling be allowed here(Nz < Nzn)?
 
-        # raw image stack
-        if self.use_cupy:
-            self.img = cp.asnumpy(img)
-        else:
-            self.img = img
-
-        # raw image sum along z axis
-        if self.use_cupy:
-            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
-        else:
+        stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
+        if self.acc == 0:
+            # raw image stack
+            # raw image sum along z axis
             self.img_sum_z = np.sum(img, axis=0)
-
-        # raw image sum along x (or y) axis"
-        if self.use_cupy:
-            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
-        else:
+            # raw image sum along x (or y) axis
             self.img_sum_x = np.sum(img, axis=1)
+            self.img = img
+        elif self.acc == 1:
+            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
+            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
+            self.img = cp.asnumpy(img)
+        elif self.acc == 2:
+            self.img_sum_z = (torch.sum(img, axis=0)).numpy()
+            self.img_sum_x = (torch.sum(img, axis=1)).numpy()
+            self.img = img.numpy()
+        elif self.acc == 3:
+            self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
+            self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
+            self.img = img.detach().cpu().numpy()
 
         # Save generated images
-        stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
-        if self.use_cupy:
-            tifffile.imwrite(stackfilename, cp.asnumpy(img))
-        else:
-            tifffile.imwrite(stackfilename, img)
+        tifffile.imwrite(stackfilename, self.img)
         print('Raw image stack saved')
 
         yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
-
+        print(f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s')
