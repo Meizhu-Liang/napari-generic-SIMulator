@@ -12,7 +12,7 @@ A napari plugin to simulate raw-image stacks of Structured illumination microsco
 The simulation is originally based on the paper <strong>GPU-accelerated real-time reconstruction in Python of three-dimensional datasets from structured illumination microscopy with hexagonal patterns</strong> by
 Hai Gong, Wenjun Guo and Mark A. A. Neil (https://doi.org/10.1098/rsta.2020.0162). 
 
-The calculation can be GPU-accelerated if cupy is installed.  
+The calculation can be GPU-accelerated if the CUPY (tested with cupy 8.3.0) is installed. In addition, the TORCH package can complete the acceleration both on CPU if TORCH is installed, and on GPU if TORCH is compiled with the CUDA (tested with torch v1.12.0+cu116) enabled.
 
 Currently applies to:
 - conventional 2-beam SIM data with 3 angles and 3 phases

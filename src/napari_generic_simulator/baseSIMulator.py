@@ -74,7 +74,6 @@ class Base_simulator:
         elif self.tdev == 'cuda':
             self._tdev = torch.device('cuda')
 
-
     def point_cloud(self):
 
         rad = 10  # radius of sphere of points
