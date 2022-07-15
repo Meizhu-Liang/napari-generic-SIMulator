@@ -12,8 +12,7 @@ try:
     import cupy as cp
     print('cupy imported')
     import_cp = True
-except Exception as e:
-    print(str(e))
+except:
     import_cp = False
 
 try:
@@ -24,9 +23,9 @@ try:
         torch_GPU = True
     else:
         torch_GPU = False
-except Exception as e:
-    print(str(e))
+except:
     import_torch = False
+    torch_GPU = False
 
 class Base_simulator:
     pol = None  # polarisation
