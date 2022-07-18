@@ -55,10 +55,11 @@ To install latest development version :
 
 
 2) Launch the widget in ***Plugin***
-    ![img.png](img.png)
+    ![img.png](images/img.png)
+    ![](images/img_1.png)
 
 
-3) Adjust the parameters in the widget and calculate the raw-image stack.
+4) Adjust the parameters in the widget and calculate the raw-image stack.
     ![img_2.png](img_2.png)
 
 

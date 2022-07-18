@@ -200,7 +200,7 @@ class SIMulator(QWidget):
 if __name__ == '__main__':
     import napari
     viewer = napari.Viewer()
-    test = SIMulator(viewer)
-    viewer.window.add_dock_widget(test, name='my second app', add_vertical_stretch=True)
+    # test = SIMulator(viewer)
+    # viewer.window.add_dock_widget(test, name='my second app', add_vertical_stretch=True)
 
     napari.run()
