@@ -30,7 +30,6 @@ except:
 class Base_simulator:
     pol = None  # polarisation
     acc = None  # acceleration
-    tdev = None
     _tdev = None
     N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -69,15 +68,12 @@ class Base_simulator:
         if self.Nz < self.Nzn:
             self.Nz = self.Nzn
             self.dz = self.dzn
-        if self.tdev == 'cpu':
-            self._tdev = torch.device('cpu')
-        elif self.tdev == 'cuda':
-            self._tdev = torch.device('cuda')
+        self._tdev = torch.device('cuda' if self.acc == 3 else 'cpu')
 
     def point_cloud(self):
 
         rad = 10  # radius of sphere of points
-        # Multiply the points several timesto get the enough number
+        # Multiply the points several times to get the enough number
         pointsxn = (2 * np.random.rand(self.npoints * 3, 3) - 1) * [rad, rad, rad]
 
         pointsxnr = np.sum(pointsxn * pointsxn, axis=1)  # multiple times the points

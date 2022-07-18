@@ -58,21 +58,21 @@ class SIMulator(QWidget):
         _layout.addWidget(function.native)
 
     def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.AXIAL, Acceleration=list(Accel)[-1],
-                   N: int = 512, pixel_size: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
-                   wavelength: float = 0.52, npoints: int = 500, zrange: float = 7.0, dz: float = 0.35,
+                   N: int = 512, pixel_size_μm: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
+                   wavelength_μm: float = 0.52, npoints: int = 500, zrange_μm: float = 7.0, dz_μm: float = 0.35,
                    fwhmz: float = 3.0):
         self.SIM_mode = SIM_mode.value
         self.Polarisation = Polarisation.value
         self.Acceleration = Acceleration.value
         self.N = N
-        self.pixel_size = pixel_size
+        self.pixel_size = pixel_size_μm
         self.magnification = magnification
         self.NA = NA
         self.n = n
-        self.wavelength = wavelength
+        self.wavelength = wavelength_μm
         self.npoints = npoints
-        self.zrange = zrange
-        self.dz = dz
+        self.zrange = zrange_μm
+        self.dz = dz_μm
         self.fwhmz = fwhmz
         self.par_list =[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size, self.magnification, self.NA, self.n, self.wavelength,
                 self.npoints, self.zrange, self.dz, self.fwhmz]
@@ -101,11 +101,9 @@ class SIMulator(QWidget):
         if hasattr(Accel, 'USE_TORCH_CPU'):
             if self.Acceleration == Accel.USE_TORCH_CPU.value:
                 self.sim.acc = 2
-                self.sim.tdev = 'cpu'
         if hasattr(Accel, 'USE_TORCH_GPU'):
             if self.Acceleration == Accel.USE_TORCH_GPU.value:
                 self.sim.acc = 3
-                self.sim.tdev = 'cuda'
 
         self.sim.N = self.N
         self.sim.pixel_size = self.pixel_size
@@ -170,7 +168,7 @@ class SIMulator(QWidget):
         if show_3D_psf:
             if hasattr(self.sim, 'psf_z0'):
                 if self.used_par_list != self.par_list:
-                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
+                    self.messageBox.setText('Parameters changed!')
                 else:
                     try:
                         self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
@@ -200,7 +198,7 @@ class SIMulator(QWidget):
 if __name__ == '__main__':
     import napari
     viewer = napari.Viewer()
-    # test = SIMulator(viewer)
-    # viewer.window.add_dock_widget(test, name='my second app', add_vertical_stretch=True)
+    test = SIMulator(viewer)
+    viewer.window.add_dock_widget(test, name='my second app', add_vertical_stretch=True)
 
     napari.run()
