@@ -45,7 +45,7 @@ To install latest development version :
 
 ## Usage
 
-1) Import napari and create the viewer. The simple code is showed below:
+1) Import napari, mark ***src*** directory as Sources Root and create the viewer. The simple code to show the viewer is showed below:
 
     ***import napari***
        

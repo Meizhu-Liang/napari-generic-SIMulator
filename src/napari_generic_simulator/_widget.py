@@ -95,14 +95,17 @@ class SIMulator(QWidget):
 
         if self.Acceleration == Accel.USE_NUMPY.value:
             self.sim.acc = 0
-        elif self.Acceleration == Accel.USE_CUPY.value:
-            self.sim.acc = 1
-        elif self.Acceleration == Accel.USE_TORCH_CPU.value:
-            self.sim.acc = 2
-            self.sim.tdev = 'cpu'
-        elif self.Acceleration == Accel.USE_TORCH_GPU.value:
-            self.sim.acc = 3
-            self.sim.tdev = 'cuda'
+        if hasattr(Accel, 'USE_CUPY'):
+            if self.Acceleration == Accel.USE_CUPY.value:
+                self.sim.acc = 1
+        if hasattr(Accel, 'USE_TORCH_CPU'):
+            if self.Acceleration == Accel.USE_TORCH_CPU.value:
+                self.sim.acc = 2
+                self.sim.tdev = 'cpu'
+        if hasattr(Accel, 'USE_TORCH_GPU'):
+            if self.Acceleration == Accel.USE_TORCH_GPU.value:
+                self.sim.acc = 3
+                self.sim.tdev = 'cuda'
 
         self.sim.N = self.N
         self.sim.pixel_size = self.pixel_size
