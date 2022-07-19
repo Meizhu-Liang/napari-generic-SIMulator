@@ -41,9 +41,12 @@ class Base_simulator:
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
-    seed(1234)  # set random number generator seed
+    random_seed = None
+
 
     def initialise(self):
+        np.random.seed(self.random_seed)
+        # self.seed(1234)  # set random number generator seed
         self.eta = self.n / self.NA  # right-angle Hex SIM
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um

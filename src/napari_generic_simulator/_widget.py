@@ -60,7 +60,7 @@ class SIMulator(QWidget):
     def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.AXIAL, Acceleration=list(Accel)[-1],
                    N: int = 512, pixel_size_μm: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
                    wavelength_μm: float = 0.52, npoints: int = 500, zrange_μm: float = 7.0, dz_μm: float = 0.35,
-                   fwhmz: float = 3.0):
+                   fwhmz_μm: float = 3.0, random_seed: int = 123):
         self.SIM_mode = SIM_mode.value
         self.Polarisation = Polarisation.value
         self.Acceleration = Acceleration.value
@@ -73,9 +73,10 @@ class SIMulator(QWidget):
         self.npoints = npoints
         self.zrange = zrange_μm
         self.dz = dz_μm
-        self.fwhmz = fwhmz
+        self.fwhmz = fwhmz_μm
+        self.random_seed = random_seed
         self.par_list =[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size, self.magnification, self.NA, self.n, self.wavelength,
-                self.npoints, self.zrange, self.dz, self.fwhmz]
+                self.npoints, self.zrange, self.dz, self.fwhmz, self.random_seed]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -115,6 +116,7 @@ class SIMulator(QWidget):
         self.sim.zrange = self.zrange
         self.sim.dz = self.dz
         self.sim.fwhmz = self.fwhmz
+        self.sim.random_seed = self.random_seed
 
     def start_simulator(self):
         """
@@ -150,7 +152,6 @@ class SIMulator(QWidget):
                               self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
                               self.fwhmz]
         return self
-
 
     def show_raw_img_sum(self, show_raw_img_sum: bool=False):
         if show_raw_img_sum:
