@@ -53,11 +53,11 @@ To install latest development version :
     ![](images/img_1.png)
 
 
-4) Adjust the parameters in the widget and calculate the raw-image stack.
+3) Adjust the parameters in the widget and calculate the raw-image stack.
     ![](images/img_2.png)
 
 
-4) The sum, psf and otf can be showed. Note the all of these correspond the generated raw-image stack, so the raw images should be recalculated if the parameters change.
+4) The sum, psf and otf can be showed. Note the all of these correspond the generated raw-image stack, so keep the parameters the same before showing the sum (or psf and otf).
     ![](images/img_3.png)
 
 

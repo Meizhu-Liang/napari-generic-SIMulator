@@ -150,7 +150,7 @@ class SIMulator(QWidget):
             print(e)
         self.used_par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
                               self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
-                              self.fwhmz]
+                              self.fwhmz, self.random_seed]
         return self
 
     def show_raw_img_sum(self, show_raw_img_sum: bool=False):
