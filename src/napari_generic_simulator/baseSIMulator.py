@@ -3,7 +3,6 @@ The parent class to simulate raw data for SIM. @author: Meizhu Liang @Imperial C
 Some calculations are adapted by work by Mark Neil @Imperial College
 """
 
-from random import seed
 import numpy as np
 import time
 import tifffile
@@ -28,8 +27,8 @@ except:
     torch_GPU = False
 
 class Base_simulator:
-    pol = None  # polarisation
-    acc = None  # acceleration
+    pol = 1  # polarisation
+    acc = 1  # acceleration
     _tdev = None
     N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -41,7 +40,7 @@ class Base_simulator:
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
-    random_seed = None
+    random_seed = 123
 
 
     def initialise(self):
@@ -98,7 +97,8 @@ class Base_simulator:
         elif self.acc == 1:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
-            self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64, device=self._tdev)
+            self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
+                                          device=self._tdev)
 
         start_time = time.time()
 
@@ -144,7 +144,6 @@ class Base_simulator:
                         pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
                                           device=self._tdev)
                         self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
-
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
@@ -235,3 +234,8 @@ class Base_simulator:
 
         yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
         print(f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s')
+
+
+
+
+
