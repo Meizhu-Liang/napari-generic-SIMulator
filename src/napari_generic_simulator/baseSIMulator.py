@@ -3,7 +3,6 @@ The parent class to simulate raw data for SIM. @author: Meizhu Liang @Imperial C
 Some calculations are adapted by work by Mark Neil @Imperial College
 """
 
-from random import seed
 import numpy as np
 import time
 import tifffile
@@ -17,9 +16,8 @@ except:
 
 try:
     import torch
-    print('torch imported')
     import_torch = True
-    if torch.has_cuda:
+    if torch.has_cuda or torch.has_mps:
         torch_GPU = True
     else:
         torch_GPU = False
@@ -71,7 +69,8 @@ class Base_simulator:
         if self.Nz < self.Nzn:
             self.Nz = self.Nzn
             self.dz = self.dzn
-        self._tdev = torch.device('cuda' if self.acc == 3 else 'cpu')
+        self._tdev = torch.device('mps' if self.acc == 3 else 'cpu')
+        # self._tdev = torch.device('cuda' if self.acc == 3 else 'cpu')
 
     def point_cloud(self):
 
@@ -98,8 +97,10 @@ class Base_simulator:
         elif self.acc == 1:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
-            self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64, device=self._tdev)
-
+            # self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
+            #                               device=self._tdev)
+            # self.phasetilts = torch.from_numpy(np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.float32)).to(dtype=torch.float32, device=self._tdev)
+            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         start_time = time.time()
 
         itcount = 0
@@ -139,11 +140,28 @@ class Base_simulator:
                         pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     else:
-                        px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
-                        py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
-                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
-                                          device=self._tdev)
-                        self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
+                        # px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
+                        # py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
+                        # pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
+                        #                   device=self._tdev)
+                        # self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
+
+                        # px_r = torch.from_numpy(np.cos(np.single(self.x * self.kxy))).to(dtype = torch.float32, device=self._tdev)
+                        # px_i = torch.from_numpy(np.sin(np.single(self.x * self.kxy))).to(dtype = torch.float32, device=self._tdev)
+                        # py_r = torch.from_numpy(np.cos(np.single(self.y * self.kxy))).to(dtype = torch.float32, device=self._tdev)
+                        # py_i = torch.from_numpy(np.sin(np.single(self.y * self.kxy))).to(dtype = torch.float32, device=self._tdev)
+                        pz_r = torch.from_numpy(np.cos(np.single(z * self.kz)) * ill).to(dtype = torch.float32, device=self._tdev)
+                        pz_i = torch.from_numpy(np.sin(np.single(z * self.kz)) * ill).to(dtype = torch.float32, device=self._tdev)
+                        pxy_r = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
+                        pxy_i = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))[..., None] + torch.from_numpy(np.sin(np.single(self.x * self.kxy))) * torch.from_numpy(np.cos(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
+                        # pxy_r = px_r[..., None] * py_r - px_i[..., None] * py_i
+                        # pxy_i = px_r[..., None] * py_i[..., None] + px_i * py_r
+                        pxyz_r = pxy_r * pz_r[..., None, None] - pxy_i * pz_i[..., None, None]
+                        pxyz_i = pxy_r * pz_i[..., None, None] + pxy_i * pz_r[..., None, None]
+                        # pxyz_r = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev) * pz_r[..., None, None] - pxy_i * pz_i[..., None, None]
+                        # pxyz_i = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev) * pz_i[..., None, None] + pxy_i * (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)[..., None, None]
+                        # self.phasetilts[isteps, :, :, :] += pxyz_r.to('cpu').numpy() + 1j * pxyz_i.to('cpu').numpy()
+                        # self.phasetilts[isteps, :, :, :] += pxyz_r.numpy() + 1j * pxyz_i.numpy()
 
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
@@ -188,8 +206,11 @@ class Base_simulator:
             img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         elif self.acc == 1:
             img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
-        else:
-            img =torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
+        # else:
+        #     # img =torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
+        #     img = torch.from_numpy(np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)).to(dtype=torch.float, device=self._tdev)
+        elif self.acc == 3:
+            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
 
         for i in range(self._nsteps):
             if self.acc == 0:
@@ -200,10 +221,14 @@ class Base_simulator:
                 ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
                 img[cp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = cp.abs(
                     cp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
-            else:
-                ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev), ) * self.phasetilts[i, :, :, :]
-                img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
-                    torch.fft.ifftn(ootf, (self.Nz, self.N, self.N)))).to(torch.float)
+            # else:
+            #     ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i, :, :, :]
+            #     img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
+            #         torch.fft.ifftn(ootf, (self.Nz, self.N, self.N)))).to(torch.float)
+            elif self.acc == 3:
+                ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = abs(
+                    np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
         # OK to use abs here as signal should be all positive.
         # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
         # But should reduction in sampling be allowed here(Nz < Nzn)?
@@ -224,10 +249,16 @@ class Base_simulator:
             self.img_sum_z = (torch.sum(img, axis=0)).numpy()
             self.img_sum_x = (torch.sum(img, axis=1)).numpy()
             self.img = img.numpy()
+        # elif self.acc == 3:
+        #     self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
+        #     self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
+        #     self.img = img.detach().cpu().numpy()
+
         elif self.acc == 3:
-            self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
-            self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
-            self.img = img.detach().cpu().numpy()
+            self.img_sum_z = np.sum(img, axis=0)
+            # raw image sum along x (or y) axis
+            self.img_sum_x = np.sum(img, axis=1)
+            self.img = img
 
         # Save generated images
         tifffile.imwrite(stackfilename, self.img)
