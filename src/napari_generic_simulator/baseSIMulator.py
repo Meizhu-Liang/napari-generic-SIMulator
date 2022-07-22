@@ -122,9 +122,9 @@ class Base_simulator:
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
                     self._ill()  # gets illumination from the child class
-                    if self.pol == 1:
+                    if self.pol == 'axial':
                         ill = self._illAx
-                    elif self.pol == 2:
+                    elif self.pol == 'circular':
                         ill = self._illCi
                     else:
                         ill = self._illIp

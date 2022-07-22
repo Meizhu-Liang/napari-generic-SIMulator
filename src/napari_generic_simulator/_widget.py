@@ -88,11 +88,11 @@ class SIMulator(QWidget):
             self.sim = ConSim_simulator()
 
         if self.Polarisation == Pol.IN_PLANE.value:
-            self.sim.pol = 0
+            self.sim.pol = 'in-plane'
         elif self.Polarisation == Pol.AXIAL.value:
-            self.sim.pol = 1
+            self.sim.pol = 'axial'
         elif self.Polarisation == Pol.CIRCULAR.value:
-            self.sim.circular = 2
+            self.sim.pol = 'circular'
 
         if self.Acceleration == Accel.USE_NUMPY.value:
             self.sim.acc = 0
