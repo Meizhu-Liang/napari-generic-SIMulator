@@ -62,9 +62,5 @@ class RightHexSim_simulator(Base_simulator):
 if __name__ == '__main__':
     s = HexSim_simulator()
     s.acc = 3
-    t = s.raw_image_stack()
-    try:
-        while True:
-            print(next(t))
-    except Exception as e:
-        print(e)
+    for msg in s.raw_image_stack():
+        print(msg)

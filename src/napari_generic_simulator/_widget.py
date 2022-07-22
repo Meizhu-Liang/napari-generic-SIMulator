@@ -157,6 +157,7 @@ class SIMulator(QWidget):
         if show_raw_img_sum:
             if hasattr(self.sim, 'img_sum_z'):
                 if self.used_par_list != self.par_list:
+                # if self.used_par_list == self.par_list:
                     self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
                 else:
                     try:
@@ -169,6 +170,7 @@ class SIMulator(QWidget):
         if show_3D_psf:
             if hasattr(self.sim, 'psf_z0'):
                 if self.used_par_list != self.par_list:
+                # if self.used_par_list == self.par_list:
                     self.messageBox.setText('Parameters changed!')
                 else:
                     try:
@@ -179,6 +181,7 @@ class SIMulator(QWidget):
     def show_otf(self, show_3D_otf: bool=False):
         if show_3D_otf:
             if hasattr(self.sim, 'aotf_x'):
+                # if self.used_par_list == self.par_list:
                 if self.used_par_list != self.par_list:
                     self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
                 else:

@@ -100,7 +100,10 @@ class Base_simulator:
             # self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
             #                               device=self._tdev)
             # self.phasetilts = torch.from_numpy(np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.float32)).to(dtype=torch.float32, device=self._tdev)
-            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+            # self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+            self.pxyz_r = torch.from_numpy(np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn))).to(dtype=torch.float32, device=self._tdev)
+            self.pxyz_i = torch.from_numpy(np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn))).to(dtype=torch.float32,
+                                                                                                  device=self._tdev)
         start_time = time.time()
 
         itcount = 0
@@ -145,24 +148,31 @@ class Base_simulator:
                         # pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
                         #                   device=self._tdev)
                         # self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
+                        px = np.single(self.x * self.kxy)
+                        py = np.single(self.y * self.kxy)
+                        pz = np.single(z * self.kz)
+                        px_r = torch.from_numpy(np.cos(px)).to(dtype= torch.float32, device=self._tdev)
+                        px_i = torch.from_numpy(np.sin(px)).to(dtype= torch.float32, device=self._tdev)
+                        py_r = torch.from_numpy(np.cos(py)).to(dtype= torch.float32, device=self._tdev)
+                        py_i = torch.from_numpy(np.sin(py)).to(dtype= torch.float32, device=self._tdev)
+                        pz_r = torch.from_numpy(np.cos(pz) * ill).to(dtype= torch.float32, device=self._tdev)
+                        pz_i = torch.from_numpy(np.sin(pz) * ill).to(dtype= torch.float32, device=self._tdev)
+                        # pxy_r = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
+                        # pxy_i = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))+ torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None]  * torch.from_numpy(np.cos(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
+                        pxy_r = (px_r[:, None] * py_r - px_i[:, None] * py_i).to(device=self._tdev)
+                        pxy_i = (px_r[:, None] * py_i + px_i[:, None] * py_r).to(device=self._tdev)
+                        self.pxyz_r[isteps, :, :, :] += (
+                                    pz_r[:, None, None] * pxy_r * (10 ** 3) - pz_i[:, None, None] * pxy_i * (10 ** 3))
+                        self.pxyz_i[isteps, :, :, :] += (pz_i[:, None, None] * pxy_r + pz_r[:, None, None] * pxy_i)
 
-                        # px_r = torch.from_numpy(np.cos(np.single(self.x * self.kxy))).to(dtype = torch.float32, device=self._tdev)
-                        # px_i = torch.from_numpy(np.sin(np.single(self.x * self.kxy))).to(dtype = torch.float32, device=self._tdev)
-                        # py_r = torch.from_numpy(np.cos(np.single(self.y * self.kxy))).to(dtype = torch.float32, device=self._tdev)
-                        # py_i = torch.from_numpy(np.sin(np.single(self.y * self.kxy))).to(dtype = torch.float32, device=self._tdev)
-                        pz_r = torch.from_numpy(np.cos(np.single(z * self.kz)) * ill).to(dtype = torch.float32, device=self._tdev)
-                        pz_i = torch.from_numpy(np.sin(np.single(z * self.kz)) * ill).to(dtype = torch.float32, device=self._tdev)
-                        pxy_r = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
-                        pxy_i = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))[..., None] + torch.from_numpy(np.sin(np.single(self.x * self.kxy))) * torch.from_numpy(np.cos(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
-                        # pxy_r = px_r[..., None] * py_r - px_i[..., None] * py_i
-                        # pxy_i = px_r[..., None] * py_i[..., None] + px_i * py_r
-                        pxyz_r = pxy_r * pz_r[..., None, None] - pxy_i * pz_i[..., None, None]
-                        pxyz_i = pxy_r * pz_i[..., None, None] + pxy_i * pz_r[..., None, None]
                         # pxyz_r = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev) * pz_r[..., None, None] - pxy_i * pz_i[..., None, None]
                         # pxyz_i = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev) * pz_i[..., None, None] + pxy_i * (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)[..., None, None]
                         # self.phasetilts[isteps, :, :, :] += pxyz_r.to('cpu').numpy() + 1j * pxyz_i.to('cpu').numpy()
                         # self.phasetilts[isteps, :, :, :] += pxyz_r.numpy() + 1j * pxyz_i.numpy()
-
+        if self.acc == 3:
+            self.phasetilts = self.pxyz_r.to('cpu').numpy() + 1j * self.pxyz_i.to('cpu').numpy()
+            # print(pz_i)
+            print(self.pxyz_r)
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
