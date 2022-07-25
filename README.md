@@ -49,16 +49,16 @@ To install latest development version :
 
 
 2) Launch the widget in ***Plugin***
-    ![img.png](images/img.png)
-    ![](images/img_1.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_1.png)
 
 
 3) Adjust the parameters in the widget and calculate the raw-image stack.
-    ![](images/img_2.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_2.png)
 
 
 4) The sum, psf and otf can be showed. Note the all of these correspond the generated raw-image stack, so keep the parameters the same before showing the sum (or psf and otf).
-    ![](images/img_3.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_3.png)
 
 
 5) The raw image stacks can be then processed by napari-sim-processor (https://www.napari-hub.org/plugins/napari-sim-processor).
