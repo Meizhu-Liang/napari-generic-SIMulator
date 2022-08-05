@@ -1,6 +1,8 @@
 """
-@authors: Meizhu Liang @Imperial College
+Widget of the napari plugin
 """
+__author__ = "Meizhu Liang @Imperial College London"
+
 from magicgui import magicgui
 from magicgui.widgets import Container
 from enum import Enum
@@ -33,7 +35,8 @@ class SIMulator(QWidget):
     """
     A Napari plugin for the simulation of raw images produced while scanning an object (3D point cloud) through focus as
     the hexSIM illumination pattern is shifted through 7 positions laterally.The raw data is processed by a standard, a
-    frame-by-frame and a batch reconstruction to produce the super-resolved output.https://doi.org/10.1098/rsta.2020.0162
+    frame-by-frame and a batch reconstruction to produce the super-resolved output.
+    https://doi.org/10.1098/rsta.2020.0162
     This currently supports hexagonal SIM (1 angle, 7 phases) with three beams and that at right-angles.
     """
     def __init__(self, viewer: 'napari.viewer.Viewer'):
@@ -44,6 +47,7 @@ class SIMulator(QWidget):
         self.start_simulator()
 
     def setup_ui(self):
+        """Sets up the layout and adds the widget to the ui"""
         self.wrap_widgets()
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -53,6 +57,7 @@ class SIMulator(QWidget):
         self.messageBox.setText('Messages')
 
     def add_magic_function(self, function, _layout):
+        """Adds the widget to the viewer"""
         self._viewer.layers.events.inserted.connect(function.reset_choices)
         self._viewer.layers.events.removed.connect(function.reset_choices)
         _layout.addWidget(function.native)
@@ -75,8 +80,9 @@ class SIMulator(QWidget):
         self.dz = dz_μm
         self.fwhmz = fwhmz_μm
         self.random_seed = random_seed
-        self.par_list =[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size, self.magnification, self.NA, self.n, self.wavelength,
-                self.npoints, self.zrange, self.dz, self.fwhmz, self.random_seed]
+        self.par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
+                         self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
+                         self.fwhmz, self.random_seed]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -119,18 +125,12 @@ class SIMulator(QWidget):
         self.sim.random_seed = self.random_seed
 
     def start_simulator(self):
-        """
-        Starts the raw images generators and create the frequency space.
-
-        """
+        """Starts the raw images generators and create the frequency space"""
         if hasattr(self, 'sim'):
             self.stop_simulator()
             self.start_simulator()
         else:
             self.set_att()
-
-    def setReconstructor(self):
-        pass
 
     def stop_simulator(self):
         if hasattr(self, 'sim'):
@@ -189,6 +189,7 @@ class SIMulator(QWidget):
                         print(str(e))
 
     def wrap_widgets(self):
+        """Creates a widget containing all small widgets"""
         w1 = magicgui(self.parameters, layout="vertical", auto_call=True)
         w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)

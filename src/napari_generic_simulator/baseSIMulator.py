@@ -1,7 +1,8 @@
 """
-The parent class to simulate raw data for SIM. @author: Meizhu Liang @Imperial College
-Some calculations are adapted by work by Mark Neil @Imperial College
+The parent class to simulate raw data for SIM.
+Some calculations are adapted by the work by Mark Neil @Imperial College London
 """
+__author__ = "Meizhu Liang @Imperial College London"
 
 import numpy as np
 import time
@@ -73,7 +74,9 @@ class Base_simulator:
         self._tdev = torch.device('cuda' if self.acc == 3 else 'cpu')
 
     def point_cloud(self):
-
+        """
+        Generates a point-cloud as the object in the imaging system.
+        """
         rad = 10  # radius of sphere of points
         # Multiply the points several times to get the enough number
         pointsxn = (2 * np.random.rand(self.npoints * 3, 3) - 1) * [rad, rad, rad]
@@ -84,7 +87,7 @@ class Base_simulator:
         self.points[:, 2] = self.points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
 
     def phase_tilts(self):
-        """Generate phase tilts in frequency space"""
+        """Generates phase tilts in frequency space"""
         self._nsteps = self._phaseStep * self._angleStep
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
@@ -117,7 +120,7 @@ class Base_simulator:
                     isteps = pstep + self._angleStep * astep  # index of the steps
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
-                    z = self.points[i, 2] + self.dz / self._nsteps * (isteps)
+                    z = self.points[i, 2] + self.dz / self._nsteps * isteps
                     self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
@@ -148,7 +151,7 @@ class Base_simulator:
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
     def raw_image_stack(self):
-        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
+        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack.
         self.initialise()
         self.point_cloud()
         yield "Point cloud calculated"
