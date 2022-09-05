@@ -34,8 +34,8 @@ class HexSim_simulator(Base_simulator):
                       + np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2))
         # In-plane polarisation
         self._illIp = 1 - 1 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) \
-                      - np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
-                      - np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2))
+                      + np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
+                      + np.cos(self.ph * (self.y + np.sqrt(3) * self.x) / 2 + self.p2))
 
 class RightHexSim_simulator(Base_simulator):
     '''
@@ -50,8 +50,9 @@ class RightHexSim_simulator(Base_simulator):
 
     def _ill(self):
         # Axial polarisation with theta being π/2
-        self._illAx = 1 + 2 / 3 * (np.cos(self.ph * (self.x) + self.p2) + np.cos(self.ph * (self.x + self.y) / 2 +
-                                    self.p1 - self.p2)+ np.cos(self.ph * (-self.x + self.y) / 2 + self.p1))
+        self._illAx = 1 + 2 / 3 * (np.cos(self.ph * (self.y) + self.p1 - self.p2) +
+                                   np.cos(self.ph * (self.x + self.y) / 2 + self.p1) +
+                                   np.cos(self.ph * (-self.x + self.y) / 2 + self.p2))
         # In-plane polarisation
         self._illIp = 1 - 2 / 3 * np.cos(self.ph * (-self.x) + self.p2)
         # Circular polarisation

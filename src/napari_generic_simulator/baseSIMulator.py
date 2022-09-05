@@ -32,17 +32,18 @@ class Base_simulator:
     acc = None  # acceleration
     tdev = None
     _tdev = None
-    N = 512  # Points to use in FFT
+    N = 128  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
     magnification = 60  # Objective magnification
     NA = 1.1  # Numerical aperture at sample
     n = 1.33  # Refractive index at sample
     wavelength = 0.52  # Wavelength in um
     npoints = 500  # Number of random points
-    zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
+    zrange = 3.5  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
     seed(1234)  # set random number generator seed
+    drift = 0.1
 
     def initialise(self):
         self.eta = self.n / self.NA  # right-angle Hex SIM
@@ -73,10 +74,11 @@ class Base_simulator:
             self._tdev = torch.device('cpu')
         elif self.tdev == 'cuda':
             self._tdev = torch.device('cuda')
+        self._nsteps = self._phaseStep * self._angleStep
 
     def point_cloud(self):
 
-        rad = 10  # radius of sphere of points
+        rad = 5  # radius of sphere of points
         # Multiply the points several timesto get the enough number
         pointsxn = (2 * np.random.rand(self.npoints * 3, 3) - 1) * [rad, rad, rad]
 
@@ -87,7 +89,6 @@ class Base_simulator:
 
     def phase_tilts(self):
         """Generate phase tilts in frequency space"""
-        self._nsteps = self._phaseStep * self._angleStep
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
@@ -99,16 +100,17 @@ class Base_simulator:
         elif self.acc == 1:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
-            self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64, device=self._tdev)
+            self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64, device=self._tdev)
 
         start_time = time.time()
 
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = -1
-
+        self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
+                self.points += self.drift * np.random.standard_normal(3)
                 for i in range(self.npoints):
                     prog = (100 * itcount) // total_its
                     if prog > lastProg:
@@ -119,7 +121,7 @@ class Base_simulator:
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
                     z = self.points[i, 2] + self.dz / self._nsteps * (isteps)
-                    self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
+
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
                     self._ill()  # gets illumination from the child class
@@ -152,6 +154,7 @@ class Base_simulator:
     def raw_image_stack(self):
         # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
         self.initialise()
+        self.drift = 0.0        # no random walk using this method
         self.point_cloud()
         yield "Point cloud calculated"
 
@@ -170,7 +173,7 @@ class Base_simulator:
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
         psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
-        self.psf_z0 = psf[int(self.Nzn / 2 + 10), :, :]  # psf at z=0
+        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
         yield "psf calculated"
 
         # Calculating 3d otf
@@ -232,7 +235,97 @@ class Base_simulator:
 
         # Save generated images
         tifffile.imwrite(stackfilename, self.img)
-        print('Raw image stack saved')
 
         yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
-        print(f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s')
+
+    def raw_image_stack_brownian(self):
+        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
+        self.initialise()
+        self.point_cloud()
+        yield "Point cloud calculated"
+
+        # Calculating psf
+        nz = 0
+        psf = np.zeros((self.Nzn, self.Nn, self.Nn))
+        pupil = self.kr < 1
+        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+            c = (np.exp(
+                1j * (z * self.n * 2 * np.pi / self.wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
+            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            nz = nz + 1
+        # Normalised so power in resampled psf(see later on) is unity in focal plane
+        psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
+        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
+        yield "psf calculated"
+
+        # Calculating 3d otf
+        psf = np.fft.fftshift(psf, axes=0) # need to set plane zero as in-focus here
+        otf = np.fft.fftn(psf)
+        aotf = abs(np.fft.fftshift(otf))  # absolute otf
+        m = max(aotf.flatten())
+        aotf_z = []
+        for x in range(self.Nzn):
+            aotf_z.append(np.sum(aotf[x]))
+        self.aotf_x = np.log(
+            aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
+        self.aotf_y = np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+        yield "3d otf calculated"
+
+        self.points[:, 2] -= self.zrange
+        if self.acc == 0:
+            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+        elif self.acc == 1:
+            img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+        else:
+            img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
+
+        zplane = 0
+        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+            for msg in self.phase_tilts():
+                yield f'planes at z={z:.2f}, {msg}'
+            self.points[:, 2] += self.dzn
+            for i in range(self._nsteps):
+                if self.acc == 0:
+                    ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                    img[zplane, :, :] = abs(
+                        np.fft.ifft2(np.sum(ootf, axis=0), (self.N, self.N)))
+                elif self.acc == 1:
+                    ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                    img[zplane, :, :] = cp.abs(
+                        cp.fft.ifft2(cp.sum(ootf, axis=0), (self.N, self.N)))
+                else:
+                    ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i, :, :, :]
+                    img[zplane, :, :] = (torch.abs(
+                        torch.fft.ifft2(torch.sum(ootf, axis=0), (self.N, self.N)))).to(torch.float)
+                zplane += 1
+
+        # OK to use abs here as signal should be all positive.
+        # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
+        # But should reduction in sampling be allowed here(Nz < Nzn)?
+
+        stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
+        if self.acc == 0:
+            # raw image stack
+            # raw image sum along z axis
+            self.img_sum_z = np.sum(img, axis=0)
+            # raw image sum along x (or y) axis
+            self.img_sum_x = np.sum(img, axis=1)
+            self.img = img
+        elif self.acc == 1:
+            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
+            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
+            self.img = cp.asnumpy(img)
+        elif self.acc == 2:
+            self.img_sum_z = (torch.sum(img, axis=0)).numpy()
+            self.img_sum_x = (torch.sum(img, axis=1)).numpy()
+            self.img = img.numpy()
+        elif self.acc == 3:
+            self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
+            self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
+            self.img = img.detach().cpu().numpy()
+
+        # Save generated images
+        tifffile.imwrite(stackfilename, self.img)
+
+        yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'

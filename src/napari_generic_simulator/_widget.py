@@ -58,9 +58,9 @@ class SIMulator(QWidget):
         _layout.addWidget(function.native)
 
     def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.AXIAL, Acceleration=list(Accel)[-1],
-                   N: int = 512, pixel_size: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
-                   wavelength: float = 0.52, npoints: int = 500, zrange: float = 7.0, dz: float = 0.35,
-                   fwhmz: float = 3.0):
+                   N: int = 128, pixel_size: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
+                   wavelength: float = 0.52, npoints: int = 1000, zrange: float = 3.5, dz: float = 0.35,
+                   fwhmz: float = 3.0, drift: float = 0.0):
         self.SIM_mode = SIM_mode.value
         self.Polarisation = Polarisation.value
         self.Acceleration = Acceleration.value
@@ -74,8 +74,9 @@ class SIMulator(QWidget):
         self.zrange = zrange
         self.dz = dz
         self.fwhmz = fwhmz
+        self.drift = drift
         self.par_list =[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size, self.magnification, self.NA, self.n, self.wavelength,
-                self.npoints, self.zrange, self.dz, self.fwhmz]
+                self.npoints, self.zrange, self.dz, self.fwhmz, self.drift]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -95,8 +96,8 @@ class SIMulator(QWidget):
 
         if self.Acceleration == Accel.USE_NUMPY.value:
             self.sim.acc = 0
-        elif self.Acceleration == Accel.USE_CUPY.value:
-            self.sim.acc = 1
+        # elif self.Acceleration == Accel.USE_CUPY.value:
+        #     self.sim.acc = 1
         elif self.Acceleration == Accel.USE_TORCH_CPU.value:
             self.sim.acc = 2
             self.sim.tdev = 'cpu'
@@ -114,6 +115,7 @@ class SIMulator(QWidget):
         self.sim.zrange = self.zrange
         self.sim.dz = self.dz
         self.sim.fwhmz = self.fwhmz
+        self.sim.drift = self.drift
 
     def start_simulator(self):
         """
@@ -139,7 +141,10 @@ class SIMulator(QWidget):
     @thread_worker(connect={"returned": show_img})
     def get_results(self):
         self.set_att()
-        t = self.sim.raw_image_stack()
+        if self.drift != 0.0:
+            t = self.sim.raw_image_stack_brownian()
+        else:
+            t = self.sim.raw_image_stack()
         try:
             while True:
                 self.messageBox.setText(next(t))
@@ -147,7 +152,7 @@ class SIMulator(QWidget):
             print(e)
         self.used_par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
                               self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
-                              self.fwhmz]
+                              self.fwhmz, self.drift]
         return self
 
 
@@ -187,7 +192,7 @@ class SIMulator(QWidget):
                         print(str(e))
 
     def wrap_widgets(self):
-        w1 = magicgui(self.parameters, layout="vertical", auto_call=True)
+        w1 = magicgui(self.parameters, layout="vertical", auto_call=True, npoints={'min': 1, 'max': 10000})
         w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)
         w4 = magicgui(self.show_psf, layout="vertical", auto_call=True)
