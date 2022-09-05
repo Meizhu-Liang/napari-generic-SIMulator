@@ -28,7 +28,7 @@ except:
     torch_GPU = False
 
 class Base_simulator:
-    pol = 1  # polarisation
+    pol = None  # polarisation
     acc = 1  # acceleration
     _tdev = None
     N = 128  # Points to use in FFT
@@ -43,6 +43,9 @@ class Base_simulator:
     fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
     drift = 0.1
+    defocus = 1 # de-focus aberration in um
+    add_sph = None  # adding primary spherical aberration
+    spherical = 0
 
     def initialise(self):
         np.random.seed(self.random_seed)
@@ -59,6 +62,8 @@ class Base_simulator:
         self.kx, self.ky = np.meshgrid(np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
                              np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
+        if self.add_sph:
+            self.spherical = np.sqrt(5) * (6 * (self.kr ** 4 - self.kr ** 2) + 1)
         self.csum = sum(sum((self.kr < 1)))  # normalise by csum so peak intensity is 1
 
         self.alpha = np.arcsin(self.NA / self.n)
@@ -156,7 +161,7 @@ class Base_simulator:
     def raw_image_stack(self):
         # Calculates point cloud, phase tilts, 3d psf and otf before the image stack.
         self.initialise()
-        self.drift = 0.0        # no random walk using this method
+        self.drift = 0.0       # no random walk using this method
         self.point_cloud()
         yield "Point cloud calculated"
 
@@ -170,8 +175,8 @@ class Base_simulator:
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
             c = (np.exp(
-                1j * (z * self.n * 2 * np.pi / self.wavelength *
-                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
+                1j * ((z + self.defocus) * self.n * 2 * np.pi / self.wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2) + self.spherical))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
@@ -253,8 +258,8 @@ class Base_simulator:
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
             c = (np.exp(
-                1j * (z * self.n * 2 * np.pi / self.wavelength *
-                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
+                1j * ((z + self.defocus) * self.n * 2 * np.pi / self.wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2) + self.spherical))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
