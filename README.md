@@ -45,25 +45,20 @@ To install latest development version :
 
 ## Usage
 
-1) Import napari and create the viewer. The simple code is showed below:
-
-    ***import napari***
-       
-    ***viewer = napari.Viewer()***
-
-    ***napari.run()***
+1) Open napari and create the viewer.
 
 
 2) Launch the widget in ***Plugin***
-    ![img.png](img.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_1.png)
 
 
 3) Adjust the parameters in the widget and calculate the raw-image stack.
-    ![img_2.png](img_2.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_2.png)
 
 
-4) The sum, psf and otf can be showed. Note the all of these correspond the generated raw-image stack, so the raw images should be recalculated if the parameters change.
-    ![img_3.png](img_3.png)
+4) The sum, psf and otf can be showed. Note the all of these correspond the generated raw-image stack, so keep the parameters the same before showing the sum (or psf and otf).
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_3.png)
 
 
 5) The raw image stacks can be then processed by napari-sim-processor (https://www.napari-hub.org/plugins/napari-sim-processor).

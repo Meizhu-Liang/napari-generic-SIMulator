@@ -1,6 +1,7 @@
 """
-Two child classes to simulate raw data of HexSim. @author: Meizhu Liang @Imperial College
+Two child classes to simulate raw data of HexSim.
 """
+__author__ = "Meizhu Liang @Imperial College London"
 
 from napari_generic_simulator.baseSIMulator import Base_simulator
 import numpy as np
@@ -63,9 +64,5 @@ class RightHexSim_simulator(Base_simulator):
 if __name__ == '__main__':
     s = HexSim_simulator()
     s.acc = 3
-    t = s.raw_image_stack()
-    try:
-        while True:
-            print(next(t))
-    except Exception as e:
-        print(e)
+    for msg in s.raw_image_stack():
+        print(msg)

@@ -1,9 +1,9 @@
 """
-The parent class to simulate raw data for SIM. @author: Meizhu Liang @Imperial College
-Some calculations are adapted by work by Mark Neil @Imperial College
+The parent class to simulate raw data for SIM.
+Some calculations are adapted by the work by Mark Neil @Imperial College London
 """
+__author__ = "Meizhu Liang @Imperial College London"
 
-from random import seed
 import numpy as np
 import time
 import tifffile
@@ -28,9 +28,8 @@ except:
     torch_GPU = False
 
 class Base_simulator:
-    pol = None  # polarisation
-    acc = None  # acceleration
-    tdev = None
+    pol = 1  # polarisation
+    acc = 1  # acceleration
     _tdev = None
     N = 128  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -42,10 +41,12 @@ class Base_simulator:
     zrange = 3.5  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
-    seed(1234)  # set random number generator seed
+    random_seed = 123
     drift = 0.1
 
     def initialise(self):
+        np.random.seed(self.random_seed)
+        # self.seed(1234)  # set random number generator seed
         self.eta = self.n / self.NA  # right-angle Hex SIM
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
@@ -70,16 +71,14 @@ class Base_simulator:
         if self.Nz < self.Nzn:
             self.Nz = self.Nzn
             self.dz = self.dzn
-        if self.tdev == 'cpu':
-            self._tdev = torch.device('cpu')
-        elif self.tdev == 'cuda':
-            self._tdev = torch.device('cuda')
-        self._nsteps = self._phaseStep * self._angleStep
+        self._tdev = torch.device('cuda' if self.acc == 3 else 'cpu')
 
     def point_cloud(self):
-
+        """
+        Generates a point-cloud as the object in the imaging system.
+        """
         rad = 5  # radius of sphere of points
-        # Multiply the points several timesto get the enough number
+        # Multiply the points several times to get the enough number
         pointsxn = (2 * np.random.rand(self.npoints * 3, 3) - 1) * [rad, rad, rad]
 
         pointsxnr = np.sum(pointsxn * pointsxn, axis=1)  # multiple times the points
@@ -88,7 +87,7 @@ class Base_simulator:
         self.points[:, 2] = self.points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
 
     def phase_tilts(self):
-        """Generate phase tilts in frequency space"""
+        """Generates phase tilts in frequency space"""
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
@@ -100,7 +99,8 @@ class Base_simulator:
         elif self.acc == 1:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
-            self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64, device=self._tdev)
+            self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
+                                          device=self._tdev)
 
         start_time = time.time()
 
@@ -120,14 +120,14 @@ class Base_simulator:
                     isteps = pstep + self._angleStep * astep  # index of the steps
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
-                    z = self.points[i, 2] + self.dz / self._nsteps * (isteps)
-
+                    z = self.points[i, 2] + self.dz / self._nsteps * isteps
+                    self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
                     self._ill()  # gets illumination from the child class
-                    if self.pol == 1:
+                    if self.pol == 'axial':
                         ill = self._illAx
-                    elif self.pol == 2:
+                    elif self.pol == 'circular':
                         ill = self._illCi
                     else:
                         ill = self._illIp
@@ -147,17 +147,17 @@ class Base_simulator:
                         pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
                                           device=self._tdev)
                         self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
-
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
     def raw_image_stack(self):
-        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
+        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack.
         self.initialise()
         self.drift = 0.0        # no random walk using this method
         self.point_cloud()
         yield "Point cloud calculated"
 
+        self._nsteps = self._phaseStep * self._angleStep
         for msg in self.phase_tilts():
             yield msg
 
@@ -272,6 +272,7 @@ class Base_simulator:
         self.aotf_y = np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
+        self._nsteps = self._phaseStep * self._angleStep
         self.points[:, 2] -= self.zrange
         if self.acc == 0:
             img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
@@ -329,3 +330,4 @@ class Base_simulator:
         tifffile.imwrite(stackfilename, self.img)
 
         yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
+

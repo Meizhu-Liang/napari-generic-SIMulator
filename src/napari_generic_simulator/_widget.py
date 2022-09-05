@@ -1,6 +1,8 @@
 """
-@authors: Meizhu Liang @Imperial College
+Widget of the napari plugin
 """
+__author__ = "Meizhu Liang @Imperial College London"
+
 from magicgui import magicgui
 from magicgui.widgets import Container
 from enum import Enum
@@ -33,7 +35,8 @@ class SIMulator(QWidget):
     """
     A Napari plugin for the simulation of raw images produced while scanning an object (3D point cloud) through focus as
     the hexSIM illumination pattern is shifted through 7 positions laterally.The raw data is processed by a standard, a
-    frame-by-frame and a batch reconstruction to produce the super-resolved output.https://doi.org/10.1098/rsta.2020.0162
+    frame-by-frame and a batch reconstruction to produce the super-resolved output.
+    https://doi.org/10.1098/rsta.2020.0162
     This currently supports hexagonal SIM (1 angle, 7 phases) with three beams and that at right-angles.
     """
     def __init__(self, viewer: 'napari.viewer.Viewer'):
@@ -44,6 +47,7 @@ class SIMulator(QWidget):
         self.start_simulator()
 
     def setup_ui(self):
+        """Sets up the layout and adds the widget to the ui"""
         self.wrap_widgets()
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -53,30 +57,33 @@ class SIMulator(QWidget):
         self.messageBox.setText('Messages')
 
     def add_magic_function(self, function, _layout):
+        """Adds the widget to the viewer"""
         self._viewer.layers.events.inserted.connect(function.reset_choices)
         self._viewer.layers.events.removed.connect(function.reset_choices)
         _layout.addWidget(function.native)
 
     def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.AXIAL, Acceleration=list(Accel)[-1],
-                   N: int = 128, pixel_size: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
-                   wavelength: float = 0.52, npoints: int = 1000, zrange: float = 3.5, dz: float = 0.35,
-                   fwhmz: float = 3.0, drift: float = 0.0):
+                   N: int = 512, pixel_size_μm: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
+                   wavelength_μm: float = 0.52, npoints: int = 500, zrange_μm: float = 7.0, dz_μm: float = 0.35,
+                   fwhmz_μm: float = 3.0, random_seed: int = 123, drift_µm: float = 0.0):
         self.SIM_mode = SIM_mode.value
         self.Polarisation = Polarisation.value
         self.Acceleration = Acceleration.value
         self.N = N
-        self.pixel_size = pixel_size
+        self.pixel_size = pixel_size_μm
         self.magnification = magnification
         self.NA = NA
         self.n = n
-        self.wavelength = wavelength
+        self.wavelength = wavelength_μm
         self.npoints = npoints
-        self.zrange = zrange
-        self.dz = dz
-        self.fwhmz = fwhmz
-        self.drift = drift
-        self.par_list =[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size, self.magnification, self.NA, self.n, self.wavelength,
-                self.npoints, self.zrange, self.dz, self.fwhmz, self.drift]
+        self.zrange = zrange_μm
+        self.dz = dz_μm
+        self.fwhmz = fwhmz_μm
+        self.random_seed = random_seed
+        self.drift = drift_µm
+        self.par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
+                         self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
+                         self.fwhmz, self.random_seed, self.drift]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -88,22 +95,24 @@ class SIMulator(QWidget):
             self.sim = ConSim_simulator()
 
         if self.Polarisation == Pol.IN_PLANE.value:
-            self.sim.pol = 0
+            self.sim.pol = 'in-plane'
         elif self.Polarisation == Pol.AXIAL.value:
-            self.sim.pol = 1
+            self.sim.pol = 'axial'
         elif self.Polarisation == Pol.CIRCULAR.value:
-            self.sim.circular = 2
+            self.sim.pol = 'circular'
 
         if self.Acceleration == Accel.USE_NUMPY.value:
             self.sim.acc = 0
-        # elif self.Acceleration == Accel.USE_CUPY.value:
-        #     self.sim.acc = 1
-        elif self.Acceleration == Accel.USE_TORCH_CPU.value:
-            self.sim.acc = 2
-            self.sim.tdev = 'cpu'
-        elif self.Acceleration == Accel.USE_TORCH_GPU.value:
-            self.sim.acc = 3
-            self.sim.tdev = 'cuda'
+
+        if hasattr(Accel, 'USE_CUPY'):
+            if self.Acceleration == Accel.USE_CUPY.value:
+                self.sim.acc = 1
+        if hasattr(Accel, 'USE_TORCH_CPU'):
+            if self.Acceleration == Accel.USE_TORCH_CPU.value:
+                self.sim.acc = 2
+        if hasattr(Accel, 'USE_TORCH_GPU'):
+            if self.Acceleration == Accel.USE_TORCH_GPU.value:
+                self.sim.acc = 3
 
         self.sim.N = self.N
         self.sim.pixel_size = self.pixel_size
@@ -116,20 +125,15 @@ class SIMulator(QWidget):
         self.sim.dz = self.dz
         self.sim.fwhmz = self.fwhmz
         self.sim.drift = self.drift
+        self.sim.random_seed = self.random_seed
 
     def start_simulator(self):
-        """
-        Starts the raw images generators and create the frequency space.
-
-        """
+        """Starts the raw images generators and create the frequency space"""
         if hasattr(self, 'sim'):
             self.stop_simulator()
             self.start_simulator()
         else:
             self.set_att()
-
-    def setReconstructor(self):
-        pass
 
     def stop_simulator(self):
         if hasattr(self, 'sim'):
@@ -152,9 +156,8 @@ class SIMulator(QWidget):
             print(e)
         self.used_par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
                               self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
-                              self.fwhmz, self.drift]
+                              self.fwhmz, self.random_seed, self.drift]
         return self
-
 
     def show_raw_img_sum(self, show_raw_img_sum: bool=False):
         if show_raw_img_sum:
@@ -172,7 +175,7 @@ class SIMulator(QWidget):
         if show_3D_psf:
             if hasattr(self.sim, 'psf_z0'):
                 if self.used_par_list != self.par_list:
-                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
+                    self.messageBox.setText('Parameters changed!')
                 else:
                     try:
                         self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
@@ -192,7 +195,8 @@ class SIMulator(QWidget):
                         print(str(e))
 
     def wrap_widgets(self):
-        w1 = magicgui(self.parameters, layout="vertical", auto_call=True, npoints={'min': 1, 'max': 10000})
+        """Creates a widget containing all small widgets"""
+        w1 = magicgui(self.parameters, layout="vertical", auto_call=True)
         w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)
         w4 = magicgui(self.show_psf, layout="vertical", auto_call=True)
