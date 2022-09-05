@@ -63,8 +63,8 @@ class SIMulator(QWidget):
         _layout.addWidget(function.native)
 
     def parameters(self, SIM_mode=Sim_mode.HEXSIM_RIGHT_ANGLES, Polarisation=Pol.AXIAL, Acceleration=list(Accel)[-1],
-                   N: int = 512, pixel_size_μm: float = 5.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
-                   wavelength_μm: float = 0.52, npoints: int = 500, zrange_μm: float = 7.0, dz_μm: float = 0.35,
+                   N: int = 128, pixel_size_μm: float = 6.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
+                   wavelength_μm: float = 0.6, npoints: int = 500, zrange_μm: float = 3.5, dz_μm: float = 0.35,
                    fwhmz_μm: float = 3.0, random_seed: int = 123, drift_µm: float = 0.0):
         self.SIM_mode = SIM_mode.value
         self.Polarisation = Polarisation.value
