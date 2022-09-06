@@ -66,7 +66,7 @@ class SIMulator(QWidget):
                    N: int = 128, pixel_size_μm: float = 6.5, magnification: int = 60, NA: float = 1.1, n: float = 1.33,
                    wavelength_μm: float = 0.6, npoints: int = 500, zrange_μm: float = 3.5, dz_μm: float = 0.35,
                    fwhmz_μm: float = 3.0, random_seed: int = 123, drift_µm: float = 0.0,
-                   defocus_aberration_µm: float = 0.0, spherical_aberration: float = 0.0):
+                   defocus_µm: float = 0.0, spherical_aberration: float = 0.0):
         self.SIM_mode = SIM_mode.value
         self.Polarisation = Polarisation.value
         self.Acceleration = Acceleration.value
@@ -82,11 +82,11 @@ class SIMulator(QWidget):
         self.fwhmz = fwhmz_μm
         self.random_seed = random_seed
         self.drift = drift_µm
-        self.def_abb = defocus_aberration_µm
+        self.defocus = defocus_µm
         self.sph_abb = spherical_aberration
         self.par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
                          self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
-                         self.fwhmz, self.random_seed, self.drift, self.def_abb, self.sph_abb]
+                         self.fwhmz, self.random_seed, self.drift, self.defocus, self.sph_abb]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -129,7 +129,7 @@ class SIMulator(QWidget):
         self.sim.fwhmz = self.fwhmz
         self.sim.drift = self.drift
         self.sim.random_seed = self.random_seed
-        self.sim.defocus = self.def_abb
+        self.sim.defocus = self.defocus
         self.sim.sph_abb = self.sph_abb
 
     def start_simulator(self):
@@ -161,7 +161,7 @@ class SIMulator(QWidget):
             print(e)
         self.used_par_list = [self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
                               self.magnification, self.NA, self.n, self.wavelength, self.npoints, self.zrange, self.dz,
-                              self.fwhmz, self.random_seed, self.drift, self.def_abb, self.sph_abb]
+                              self.fwhmz, self.random_seed, self.drift, self.defocus, self.sph_abb]
         return self
 
     def show_raw_img_sum(self, show_raw_img_sum: bool=False):
