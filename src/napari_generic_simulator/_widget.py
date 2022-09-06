@@ -4,14 +4,13 @@ Widget of the napari plugin
 __author__ = "Meizhu Liang @Imperial College London"
 
 from magicgui import magicgui
-from magicgui.widgets import Container
 from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp, import_torch, torch_GPU
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from napari_generic_simulator.conSIMulator import ConSim_simulator
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLineEdit
 from napari.qt.threading import thread_worker
-from magicgui.widgets import SpinBox, FileEdit, Slider, Label, Container, ComboBox, FloatSpinBox
+from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox
 
 class Sim_mode(Enum):
     HEXSIM = 0
@@ -31,9 +30,6 @@ class Accel(Enum):
             USE_TORCH_GPU = 2
     if import_cp:
         USE_CUPY = 3
-
-
-
 
 class SIMulator(QWidget):
     """
@@ -67,24 +63,6 @@ class SIMulator(QWidget):
         self._viewer.layers.events.inserted.connect(function.reset_choices)
         self._viewer.layers.events.removed.connect(function.reset_choices)
         _layout.addWidget(function.native)
-    #
-    # @magicgui(
-    #     # call_button="Calculate",
-    #     layout="vertical",
-    #     # result_widget=True,
-    #     # numbers default to spinbox widgets, but we can make
-    #     # them sliders using the `widget_type` option
-    #     n_points={"widget_type": "SpinBox", "min":0, "max":10000},
-    #     # slider_float={"widget_type": "FloatSlider", "max": 100},
-    #     # slider_int={"widget_type": "Slider", "readout": False},
-    #     # radio_option={
-    #     #     "widget_type": "RadioButtons",
-    #     #     "orientation": "horizontal",
-    #     #     "choices": [("first option", 1), ("second option", 2)],
-    #     # },
-    #     # filename={"label": "Pick a file:"},  # custom label
-    # )
-
 
     def parameters(self):
         self.npoints = SpinBox(value=10, name='spin', label='Value:', min=-100, max=10000)
@@ -105,6 +83,7 @@ class SIMulator(QWidget):
         self.drift = FloatSpinBox(value=0.0, name='spin', label='drift(μm)', min=-10.0)
         self.defocus = FloatSpinBox(value=0.0, name='spin', label='de-focus aberration(μm)', min=-10.0)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical aberration', min=-10.0)
+        self.lable = Label(value='aberration')
 
     def par_list(self):
         """return the current parameter list"""
@@ -231,12 +210,12 @@ class SIMulator(QWidget):
 
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
-        # w1 = magicgui(self.parameters, layout="vertical", auto_call=True)
-        w1 = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
-                              self.magnification, self.NA, self.n, self.wavelength, self.n_points, self.zrange, self.dz,
-                              self.fwhmz, self.random_seed, self.drift, self.defocus, self.sph_abb])
+        w1_a = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
+                              self.magnification, self.NA, self.n])
+        w1_b = Container(widgets=[self.wavelength, self.n_points, self.zrange, self.dz, self.fwhmz, self.random_seed,
+                                  self.drift, self.defocus, self.sph_abb])
+        w1 = Container(widgets=[w1_a, w1_b], layout="horizontal")
         w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
-        # w2 = magicgui(self.pr, call_button="Calculate raw image stack", auto_call=False)
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)
         w4 = magicgui(self.show_psf, layout="vertical", auto_call=True)
         w5 = magicgui(self.show_otf, layout="vertical", auto_call=True)
