@@ -62,8 +62,7 @@ class Base_simulator:
         self.kx, self.ky = np.meshgrid(np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
                              np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
-        if self.add_sph:
-            self.spherical = np.sqrt(5) * (6 * (self.kr ** 4 - self.kr ** 2) + 1)
+        self.spherical = self.sph_abb * np.sqrt(5) * (6 * (self.kr ** 4 - self.kr ** 2) + 1)
         self.csum = sum(sum((self.kr < 1)))  # normalise by csum so peak intensity is 1
 
         self.alpha = np.arcsin(self.NA / self.n)
