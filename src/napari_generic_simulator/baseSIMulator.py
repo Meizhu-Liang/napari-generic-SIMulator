@@ -29,7 +29,7 @@ except:
 
 class Base_simulator:
     pol = None  # polarisation
-    acc = 1  # acceleration
+    acc = None  # acceleration
     _tdev = None
     N = 128  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -78,7 +78,7 @@ class Base_simulator:
         else:
             self.Nzn = self.Nz
             self.dzn = self.dz
-        self._tdev = torch.device('cuda' if self.acc == 3 else 'cpu')
+        self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
 
     def point_cloud(self):
         """
@@ -103,7 +103,7 @@ class Base_simulator:
 
         if self.acc == 0:
             self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-        elif self.acc == 1:
+        elif self.acc == 3:
             self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
             self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
@@ -143,7 +143,7 @@ class Base_simulator:
                         py = np.exp(1j * np.single(self.y * self.kxy))
                         pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                    elif self.acc == 1:
+                    elif self.acc == 3:
                         px = cp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
                         py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
                         pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
@@ -197,7 +197,7 @@ class Base_simulator:
 
         if self.acc == 0:
             img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
-        elif self.acc == 1:
+        elif self.acc == 3:
             img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         else:
             img =torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
@@ -207,7 +207,7 @@ class Base_simulator:
                 ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
                 img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = abs(
                     np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
-            elif self.acc == 1:
+            elif self.acc == 3:
                 ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
                 img[cp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = cp.abs(
                     cp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
@@ -228,17 +228,18 @@ class Base_simulator:
             self.img_sum_x = np.sum(img, axis=1)
             self.img = img
         elif self.acc == 1:
-            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
-            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
-            self.img = cp.asnumpy(img)
-        elif self.acc == 2:
             self.img_sum_z = (torch.sum(img, axis=0)).numpy()
             self.img_sum_x = (torch.sum(img, axis=1)).numpy()
             self.img = img.numpy()
-        elif self.acc == 3:
+        elif self.acc == 2:
             self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
             self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
             self.img = img.detach().cpu().numpy()
+        elif self.acc == 3:
+            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
+            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
+            self.img = cp.asnumpy(img)
+
 
         # Save generated images
         tifffile.imwrite(stackfilename, self.img)
@@ -283,11 +284,12 @@ class Base_simulator:
         self.points[:, 2] -= self.zrange
         if self.acc == 0:
             img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
-        elif self.acc == 1:
+        elif self.acc == 3:
             img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         else:
             img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
 
+        start_Brownian = time.time()
         zplane = 0
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
             for msg in self.phase_tilts():
@@ -298,7 +300,7 @@ class Base_simulator:
                     ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
                     img[zplane, :, :] = abs(
                         np.fft.ifft2(np.sum(ootf, axis=0), (self.N, self.N)))
-                elif self.acc == 1:
+                elif self.acc == 3:
                     ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
                     img[zplane, :, :] = cp.abs(
                         cp.fft.ifft2(cp.sum(ootf, axis=0), (self.N, self.N)))
@@ -321,20 +323,20 @@ class Base_simulator:
             self.img_sum_x = np.sum(img, axis=1)
             self.img = img
         elif self.acc == 1:
-            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
-            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
-            self.img = cp.asnumpy(img)
-        elif self.acc == 2:
             self.img_sum_z = (torch.sum(img, axis=0)).numpy()
             self.img_sum_x = (torch.sum(img, axis=1)).numpy()
             self.img = img.numpy()
-        elif self.acc == 3:
+        elif self.acc == 2:
             self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
             self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
             self.img = img.detach().cpu().numpy()
+        elif self.acc == 3:
+            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
+            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
+            self.img = cp.asnumpy(img)
 
         # Save generated images
         tifffile.imwrite(stackfilename, self.img)
-
-        yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
+        elapsed_Brownian = time.time() - start_Brownian
+        yield f'Finished, Phase tilts calculation time:  {elapsed_Brownian:3f}s'
 
