@@ -8,13 +8,13 @@ from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp, import_torch, torch_GPU
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from napari_generic_simulator.conSIMulator import ConSim_simulator
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLineEdit
+from qtpy.QtWidgets import QWidget, QVBoxLayout
 from napari.qt.threading import thread_worker
-from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox
+from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
 
 class Sim_mode(Enum):
     HEXSIM = 0
-    HEXSIM_RIGHT_ANGLES = 1
+    HEXSIM_RA = 1
     SIM_CONV = 2  # Conventional 2-beam SIM
 
 class Pol(Enum):
@@ -23,13 +23,13 @@ class Pol(Enum):
     CIRCULAR = 2
 
 class Accel(Enum):
-    USE_NUMPY = 0
+    NUMPY = 0
     if import_torch:
-        USE_TORCH_CPU = 1
+        TORCH_CPU = 1
         if torch_GPU:
-            USE_TORCH_GPU = 2
+            TORCH_GPU = 2
     if import_cp:
-        USE_CUPY = 3
+        CUPY = 3
 
 class SIMulator(QWidget):
     """
@@ -47,16 +47,12 @@ class SIMulator(QWidget):
         self.setup_ui()
         self.start_simulator()
 
-
     def setup_ui(self):
         """Sets up the layout and adds the widget to the ui"""
         self.wrap_widgets()
         layout = QVBoxLayout()
         self.setLayout(layout)
         self.add_magic_function(self.w, layout)
-        self.messageBox = QLineEdit()
-        layout.addWidget(self.messageBox, stretch=True)
-        self.messageBox.setText('Messages')
 
     def add_magic_function(self, function, _layout):
         """Adds the widget to the viewer"""
@@ -66,23 +62,23 @@ class SIMulator(QWidget):
 
     def parameters(self):
         self.npoints = SpinBox(value=10, name='spin', label='Value:', min=-100, max=10000)
-        self.SIM_mode = ComboBox(value=Sim_mode.HEXSIM_RIGHT_ANGLES, label='SIM_mode', choices=Sim_mode)
+        self.SIM_mode = ComboBox(value=Sim_mode.HEXSIM_RA, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
         self.N = SpinBox(value=128, name='spin', label='N pixel')
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
-        self.magnification = SpinBox(value=60, name='spin', label='objective magnification')
+        self.magnification = SpinBox(value=60, name='spin', label='magnification')
         self.NA = FloatSpinBox(value=1.1, name='spin', label='NA', min=0.0)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
         self.wavelength = FloatSpinBox(value=0.60, name='spin', label='wavelength(μm)', min=0.00)
         self.n_points = SpinBox(value=500, name='spin', label='N points', max=10000, step=10)
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
         self.dz = FloatSpinBox(value=0.35, name='spin', label='dz(μm)', min=0.00)
-        self.fwhmz = FloatSpinBox(value=3.0, name='spin', label='fwhmz(μm)', min=0.0)
+        self.fwhmz = FloatSpinBox(value=3.0, name='spin', label='fwhmz(μm)', min=0.0, max=10.0)
         self.random_seed = SpinBox(value=123, name='spin', label='random seed')
-        self.drift = FloatSpinBox(value=0.0, name='spin', label='drift(μm)', min=-10.0)
-        self.defocus = FloatSpinBox(value=0.0, name='spin', label='de-focus aberration(μm)', min=-10.0)
-        self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical aberration', min=-10.0)
+        self.drift = FloatSpinBox(value=0.0, name='spin', label='drift(μm)', min=0.0, max=1.0, step=0.01)
+        self.defocus = FloatSpinBox(value=0.0, name='spin', label='de-focus(μm)', min=-10.0, max=10, step=0.5)
+        self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
         self.lable = Label(value='aberration')
 
     def par_list(self):
@@ -96,7 +92,7 @@ class SIMulator(QWidget):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
         if self.SIM_mode.value == Sim_mode.HEXSIM:
             self.sim = HexSim_simulator()
-        elif self.SIM_mode.value ==Sim_mode.HEXSIM_RIGHT_ANGLES:
+        elif self.SIM_mode.value ==Sim_mode.HEXSIM_RA:
             self.sim = RightHexSim_simulator()
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             self.sim = ConSim_simulator()
@@ -108,17 +104,17 @@ class SIMulator(QWidget):
         elif self.Polarisation.value == Pol.CIRCULAR:
             self.sim.pol = 'circular'
 
-        if self.Acceleration.value == Accel.USE_NUMPY:
+        if self.Acceleration.value == Accel.NUMPY:
             self.sim.acc = 0
 
-        if hasattr(Accel, 'USE_TORCH_CPU'):
-            if self.Acceleration.value == Accel.USE_TORCH_CPU:
+        if hasattr(Accel, 'TORCH_CPU'):
+            if self.Acceleration.value == Accel.TORCH_CPU:
                 self.sim.acc = 1
-        if hasattr(Accel, 'USE_TORCH_GPU'):
-            if self.Acceleration.value == Accel.USE_TORCH_GPU:
+        if hasattr(Accel, 'TORCH_GPU'):
+            if self.Acceleration.value == Accel.TORCH_GPU:
                 self.sim.acc = 2
-        if hasattr(Accel, 'USE_CUPY'):
-            if self.Acceleration.value == Accel.USE_CUPY:
+        if hasattr(Accel, 'CUPY'):
+            if self.Acceleration.value == Accel.CUPY:
                 self.sim.acc = 3
 
         self.sim.N = self.N.value
@@ -165,7 +161,7 @@ class SIMulator(QWidget):
             t = self.sim.raw_image_stack()
         try:
             while True:
-                self.messageBox.setText(next(t))
+                self.messageBox.value = next(t)
         except Exception as e:
             print(e)
         return self
@@ -174,7 +170,7 @@ class SIMulator(QWidget):
         if show_raw_img_sum:
             if hasattr(self.sim, 'img_sum_z'):
                 if self.used_par_list != self.par_list():
-                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
+                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                 else:
                     try:
                         self._viewer.add_image(self.sim.img_sum_z, name='raw image sum along z axis')
@@ -186,7 +182,7 @@ class SIMulator(QWidget):
         if show_3D_psf:
             if hasattr(self.sim, 'psf_z0'):
                 if self.used_par_list != self.par_list():
-                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
+                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                 else:
                     try:
                         self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
@@ -197,7 +193,7 @@ class SIMulator(QWidget):
         if show_3D_otf:
             if hasattr(self.sim, 'aotf_x'):
                 if self.used_par_list != self.par_list():
-                    self.messageBox.setText('Parameters changed! Calculate the raw-image stack first!')
+                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                 else:
                     try:
                         self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
@@ -217,9 +213,10 @@ class SIMulator(QWidget):
         w1 = Container(widgets=[w1_a, w1_b], layout="horizontal")
         w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)
-        w4 = magicgui(self.show_psf, layout="vertical", auto_call=True)
-        w5 = magicgui(self.show_otf, layout="vertical", auto_call=True)
-        self.w = Container(widgets=[w1, w2, w3, w4, w5], labels=None)
+        w4 = magicgui(self.show_psf, auto_call=True)
+        w5 = magicgui(self.show_otf, auto_call=True)
+        self.messageBox = LineEdit(value="Messages")
+        self.w = Container(widgets=[w1, w2, w3, w4, w5, self.messageBox], labels=None)
 
 if __name__ == '__main__':
     import napari

@@ -240,9 +240,9 @@ class Base_simulator:
             self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
             self.img = cp.asnumpy(img)
 
-
         # Save generated images
         tifffile.imwrite(stackfilename, self.img)
+        yield "file saved"
 
         yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
