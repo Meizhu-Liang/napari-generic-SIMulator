@@ -22,6 +22,10 @@ class Pol(Enum):
     AXIAL = 1
     CIRCULAR = 2
 
+class Psf_calc(Enum):
+    SCALAR = 0
+    VECTOR = 1
+
 class Accel(Enum):
     NUMPY = 0
     if import_torch:
@@ -65,6 +69,7 @@ class SIMulator(QWidget):
         self.SIM_mode = ComboBox(value=Sim_mode.HEXSIM_RA, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
+        self.Psf = ComboBox(value=Psf_calc.VECTOR, label='Psf calculation', choices=Psf_calc)
         self.N = SpinBox(value=128, name='spin', label='N pixel')
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
@@ -116,6 +121,11 @@ class SIMulator(QWidget):
         if hasattr(Accel, 'CUPY'):
             if self.Acceleration.value == Accel.CUPY:
                 self.sim.acc = 3
+
+        if self.Psf.value == Psf_calc.VECTOR:
+            self.sim.psf_calc = 'vector'
+        elif self.Psf.value == Psf_calc.SCALAR:
+            self.sim.psf_calc = 'scalar'
 
         self.sim.N = self.N.value
         self.sim.pixel_size = self.pixel_size.value
@@ -206,7 +216,7 @@ class SIMulator(QWidget):
 
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
-        w1_a = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.N, self.pixel_size,
+        w1_a = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N, self.pixel_size,
                               self.magnification, self.NA, self.n])
         w1_b = Container(widgets=[self.wavelength, self.n_points, self.zrange, self.dz, self.fwhmz, self.random_seed,
                                   self.drift, self.defocus, self.sph_abb])

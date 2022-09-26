@@ -29,11 +29,10 @@ except:
     import_torch = False
     torch_GPU = False
 
--0.0 == +0.0 == 0
-
 class Base_simulator:
     pol = None  # polarisation
     acc = None  # acceleration
+    psf_calc = None
     _tdev = None
     N = 128  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -163,51 +162,23 @@ class Base_simulator:
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
-    def get_psf(self):
-        # N = 512  # size of input array (edge is at full NA of lens)
-        M = 512  # size in pixels of output arrays
-        wavelength = 0.647  # wavelength
-        NA = 1.3
-        n = 1.33
-        cx = 0  # centre position in x
-        cy = 0  # centre position in y (assumed =0 in xz calculation)
-        sxy = 5  # display size in same units as wavelength
-        cz = 0  # calculation plane for xy
-
-        # calculate pupil functions here
-        [kxi, kyi] = np.meshgrid(16 * np.linspace(-1, 1 - 2 / self.Nn, self.Nn), 16 * np.linspace(-1, 1 - 2 / self.Nn, self.Nn))
-        kri = np.sqrt(kxi ** 2 + kyi ** 2)
-        e_ini = 1.0 * (kri < 1)
-        self.Nn = np.size(e_ini[0])
-        # dx = N / M * wavelength / 2 / NA
-        # mag = M * dx / sxy
-
-        k0 = 2 * np.pi * n / wavelength
-        krmax = NA * k0 / n
-        kx = krmax * (kxi + 1e-15)
-        ky = krmax * (kyi + 1e-15)
-        # e_ini = 1.0 * (kr < 1)
+    def get_vector_psf(self):
+        k0 = 2 * np.pi * self.n / self.wavelength
+        krmax = self.NA * k0 / self.n
+        kx = krmax * (self.kx + 1e-15)
+        ky = krmax * (self.ky + 1e-15)
         kr2 = (kx ** 2 + ky ** 2)  # square kr
+        e_in = 1.0 * (kr2 < krmax ** 2)
         kz = np.sqrt((k0 ** 2 - kr2) + 0j)
-        input_power = sum(sum(abs(e_ini) ** 2))
-        e_in = e_ini / np.sqrt(input_power)
 
-        fx1 = k0 * (k0 * ky ** 2 + kx ** 2 * kz) / (np.sqrt(kz / k0) * kr2) * e_in * np.exp(1j * cz * kz)
-        Exx = np.fft.fftshift(np.fft.fft2(fx1))
-        print(Exx[50])
         # Calculating psf
         nz = 0
         psf = np.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
-        eee = 1.0 * (self.kr < 1)
-        self.Nn = np.size(eee[0])
-        sxy = 5  # display size in same units as wavelength
-        # cz = 0  # calculation plane for xy
-
-
 
         # calculate intensity of random arrangement of dipoles excited by a given polarisation s
         # p are the vertices of an dodecahedron
+        p0 = np.reshape(np.array([0, 1, 0]), (1, 3))
         p1 = np.reshape(np.array([-0.666666, 0., 0.745353,
                                   0.666666, 0., -0.745353,
                                   -0.127322, -0.93417, 0.333332,
@@ -252,51 +223,66 @@ class Base_simulator:
         p2 = p2 / np.linalg.norm(p2[0, :])
 
         p = p1
-        s1 = np.array([1, 0, 0])
+        s1 = np.array([1, 0, 0])  # x polarised illumination orientation
         excitation1 = (s1 @ p.T) ** 2
-        s2 = np.array([0, 1, 0])
+        s2 = np.array([0, 1, 0])  # y polarised illumination orientation
         excitation2 = (s2 @ p.T) ** 2
-        s3 = np.array([0, 0, 1])
+        s3 = np.array([0, 0, 1])  # z polarised illumination orientation
         excitation3 = (s3 @ p.T) ** 2
-        # fx1 = k0 * (k0 * ky ** 2 + kx ** 2 * kz) / (np.sqrt(kz / k0) * self.kr2) * e_in * np.exp(1j * 1 * kz)
-        # Exx = np.fft.fftshift(np.fft.fft2(fx1))
-        # Exx = Exx[~np.isnan(Exx)]
+
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
             fx1 = k0 * (k0 * ky ** 2 + kx ** 2 * kz) / (np.sqrt(kz / k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Exx = np.fft.fftshift(np.fft.fft2(fx1))
+            Exx = np.fft.fftshift(np.fft.fft2(fx1))  # x-polarised field at camera for x-oriented dipole
             fy1 = k0 * kx * ky * (kz - k0) / (np.sqrt(kz / k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Exy = np.fft.fftshift(np.fft.fft2(fy1))
+            Exy = np.fft.fftshift(np.fft.fft2(fy1))  # y-polarised field at camera for x-oriented dipole
             fx2 = k0 * kx * ky * (kz - k0) / (np.sqrt(kz / k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Eyx = np.fft.fftshift(np.fft.fft2(fx2))
+            Eyx = np.fft.fftshift(np.fft.fft2(fx2))  # x-polarised field at camera for y-oriented dipole
             fy2 = k0 * (k0 * kx ** 2 + ky ** 2 * kz) / (np.sqrt(kz / k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Eyy = np.fft.fftshift(np.fft.fft2(fy2))
+            Eyy = np.fft.fftshift(np.fft.fft2(fy2))  # y-polarised field at camera for y-oriented dipole
             fx3 = k0 * kx / np.sqrt(kz / k0) * e_in * np.exp(1j * z * kz)
-            Ezx = np.fft.fftshift(np.fft.fft2(fx3))
+            Ezx = np.fft.fftshift(np.fft.fft2(fx3))  # x-polarised field at camera for z-oriented dipole
             fy3 = k0 * ky / np.sqrt(kz / k0) * e_in * np.exp(1j * z * kz)
-            Ezy = np.fft.fftshift(np.fft.fft2(fy3))
+            Ezy = np.fft.fftshift(np.fft.fft2(fy3))  # y-polarised field at camera for z-oriented dipole
             intensityx = np.zeros((self.Nn, self.Nn))
             intensityy = np.zeros((self.Nn, self.Nn))
             intensityz = np.zeros((self.Nn, self.Nn))
-            for i in np.arange(20):
+            for i in np.arange(p.shape[0]):
                 intensityx = intensityx + excitation1[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2
                                                             + abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
                 intensityy = intensityy + excitation2[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
                 intensityz = intensityz + excitation3[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
-            intensity = (intensityx + intensityy + intensityz) / 3
-            c = (np.exp(1j * ((z + self.defocus) * self.n * 2 * np.pi / self.wavelength
-                              * np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2) + self.spherical))) * pupil
-            # psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            if self.pol == 'axial':
+                intensity = intensityz  # for axially polarised illumination
+            elif self.pol == 'circular':
+                # dipoles that re-orient between excitation and emmission and maybe for circular polarised illumination
+                intensity = (intensityx + intensityy + intensityz) / 3
+            else:
+                intensity = intensityx + intensityy  # for in plane illumination
             psf[nz, :, :] = intensity * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
+        print(np.sum(psf, axis=(1, 2)))
+        sumpsf = np.sum(psf[self.Nzn // 2], axis=(0, 1))
+        psf = psf / sumpsf
+        print(np.sum(psf, axis=(1, 2)))
+        return psf
+
+    def get_scalar_psf(self):
+        nz = 0
+        psf = np.zeros((self.Nzn, self.Nn, self.Nn))
+        pupil = self.kr < 1
+        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+            c = (np.exp(
+                1j * ((z + self.defocus) * self.n * 2 * np.pi / self.wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2) + self.spherical))) * pupil
+            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
-        # zzz = abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx)
-        # for i in e_in[50]:
-        #     if i != 0 + 0j:
-        #         print(i)
+        print(np.sum(psf, axis = (1,2)))
         psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
-        # print(psf.shape)
+        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
+        print(np.sum(psf, axis = (1,2)))
         return psf
 
     def raw_image_stack(self):
@@ -309,7 +295,10 @@ class Base_simulator:
         self._nsteps = self._phaseStep * self._angleStep
         for msg in self.phase_tilts():
             yield msg
-        psf = self.get_psf()
+        if self.psf_calc == 'vector':
+            psf = self.get_vector_psf()
+        else:
+            psf = self.get_scalar_psf()
         self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
         yield "psf calculated"
 
@@ -383,18 +372,7 @@ class Base_simulator:
         yield "Point cloud calculated"
 
         # Calculating psf
-        nz = 0
-        psf = np.zeros((self.Nzn, self.Nn, self.Nn))
-        pupil = self.kr < 1
-        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
-            c = (np.exp(
-                1j * ((z + self.defocus) * self.n * 2 * np.pi / self.wavelength *
-                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2) + self.spherical))) * pupil
-            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
-            nz = nz + 1
-        # Normalised so power in resampled psf(see later on) is unity in focal plane
-        psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
-        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
+        psf = self.get_scalar_psf()
         yield "psf calculated"
 
         # Calculating 3d otf
