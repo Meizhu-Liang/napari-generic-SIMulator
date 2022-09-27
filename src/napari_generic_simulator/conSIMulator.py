@@ -6,6 +6,7 @@ __author__ = "Meizhu Liang @Imperial College London"
 from napari_generic_simulator.baseSIMulator import Base_simulator
 import numpy as np
 
+
 class ConSim_simulator(Base_simulator):
     '''
     Implements sinusoidal SIM illumination with two beams, three angles and three phase steps.
@@ -20,13 +21,27 @@ class ConSim_simulator(Base_simulator):
         self._phaseStep = 3
         self._angleStep = 3
         super().__init__()
-        self.eta = self.n / self.NA
+        self._eta = 0.5 * self.n / self.NA
 
-    def _ill(self):
-        """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
+    """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
+
+    def _illCi(self):
         # Circular polarisation
-        self._illCi = 1
+        _illCi_0 = 1
+        _illCi_1 = 1
+        _illCi_2 = 1
+        return _illCi_0, _illCi_1, _illCi_2
+
+    def _illAx(self):
         # Axial polarisation
-        self._illAx = 1 + np.cos(self.ph * (-2 * self.x) + self.p1)
+        _illAx_0 = 1 + 1 / 3 * np.cos(self.ph * (-2 * self.x) + self.p1)
+        _illAx_1 = 1 + 1 / 3 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self.p1)
+        _illAx_2 = 1 + 1 / 3 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self.p1)
+        return _illAx_0, _illAx_1, _illAx_2
+
+    def _illIp(self):
         # In-plane polarisation
-        self._illIp = 1 - np.cos(self.ph * (-2 * self.x) + self.p1)
+        _illIp_0 = 1 - 1 / 3 * np.cos(self.ph * (-2 * self.x) + self.p1)
+        _illIp_1 = 1 - 1 / 3 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self.p1)
+        _illIp_2 = 1 - 1 / 3 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self.p1)
+        return _illIp_0, _illIp_1, _illIp_2

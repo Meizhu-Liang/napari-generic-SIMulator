@@ -73,7 +73,7 @@ class SIMulator(QWidget):
         self.N = SpinBox(value=128, name='spin', label='N pixel')
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
-        self.NA = FloatSpinBox(value=1.1, name='spin', label='NA', min=0.0)
+        self.NA = FloatSpinBox(value=1.1, name='spin', label='NA', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
         self.wavelength = FloatSpinBox(value=0.60, name='spin', label='wavelength(μm)', min=0.00)
         self.n_points = SpinBox(value=500, name='spin', label='N points', max=10000, step=10)

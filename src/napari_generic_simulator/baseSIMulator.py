@@ -53,8 +53,6 @@ class Base_simulator:
     def initialise(self):
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
-
-        self.eta = self.n / self.NA  # right-angle Hex SIM
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
         self.dxn = self.wavelength / (4 * self.NA)  # 2 * Nyquist frequency in x and y.
@@ -119,44 +117,44 @@ class Base_simulator:
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = -1
-        self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
-        for astep in range(self._angleStep):
-            for pstep in range(self._phaseStep):
+        self.ph = self._eta * 4 * np.pi * self.NA / self.wavelength
+        for pstep in range(self._phaseStep):
+            for astep in range(self._angleStep):
                 self.points += self.drift * np.random.standard_normal(3)
+                isteps = pstep + self._angleStep * astep  # index of the steps
                 for i in range(self.npoints):
                     prog = (100 * itcount) // total_its
                     if prog > lastProg:
                         lastProg = prog
                         yield f'Phase tilts calculation: {prog:.1f}% done'
                     itcount += 1
-                    isteps = pstep + self._angleStep * astep  # index of the steps
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
                     z = self.points[i, 2] + self.dz / self._nsteps * isteps
-                    self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
+                    self.ph = self._eta * 4 * np.pi * self.NA / self.wavelength
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
-                    self._ill()  # gets illumination from the child class
                     if self.pol == 'axial':
-                        ill = self._illAx
+                        # gets illumination from the child class
+                        ill = self._illAx()
                     elif self.pol == 'circular':
-                        ill = self._illCi
+                        ill = self._illCi()
                     else:
-                        ill = self._illIp
+                        ill = self._illIp()
                     if self.acc == 0:
                         px = np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis]
                         py = np.exp(1j * np.single(self.y * self.kxy))
-                        pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
+                        pz = (np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis]
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     elif self.acc == 3:
                         px = cp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
                         py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
-                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
+                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis])
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     else:
                         px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
                         py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
-                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
+                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill[astep]),
                                              device=self._tdev)
                         self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
         self.elapsed_time = time.time() - start_time
@@ -262,10 +260,10 @@ class Base_simulator:
                 intensity = intensityx + intensityy  # for in plane illumination
             psf[nz, :, :] = intensity * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
-        print(np.sum(psf, axis=(1, 2)))
-        sumpsf = np.sum(psf[self.Nzn // 2], axis=(0, 1))
-        psf = psf / sumpsf
-        print(np.sum(psf, axis=(1, 2)))
+        # print(np.sum(psf, axis=(1, 2)))
+        # sumpsf = np.sum(psf[self.Nzn // 2], axis=(0, 1))
+        # psf = psf / sumpsf
+        # print(np.sum(psf, axis=(1, 2)))
         return psf
 
     def get_scalar_psf(self):
@@ -279,10 +277,10 @@ class Base_simulator:
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
-        print(np.sum(psf, axis = (1,2)))
-        psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
-        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
-        print(np.sum(psf, axis = (1,2)))
+        # print(np.sum(psf, axis = (1,2)))
+        # psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
+        # self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
+        # print(np.sum(psf, axis = (1,2)))
         return psf
 
     def raw_image_stack(self):
@@ -372,11 +370,15 @@ class Base_simulator:
         yield "Point cloud calculated"
 
         # Calculating psf
-        psf = self.get_scalar_psf()
+        if self.psf_calc == 'vector':
+            psf = self.get_vector_psf()
+        else:
+            psf = self.get_scalar_psf()
         yield "psf calculated"
 
         # Calculating 3d otf
         psf = np.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
+        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
         otf = np.fft.fftn(psf)
         aotf = abs(np.fft.fftshift(otf))  # absolute otf
         m = max(aotf.flatten())
