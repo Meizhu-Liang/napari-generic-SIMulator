@@ -133,7 +133,7 @@ class SIMulator(QWidget):
         self.sim.NA = self.NA.value
         self.sim.n = self.n.value
         self.sim.wavelength = self.wavelength.value
-        self.sim._ = self.n_points.value
+        self.sim.npoints = self.n_points.value
         self.sim.zrange = self.zrange.value
         self.sim.dz = self.dz.value
         self.sim.fwhmz = self.fwhmz.value

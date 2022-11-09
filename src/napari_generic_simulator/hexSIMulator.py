@@ -29,21 +29,21 @@ class HexSim_simulator(Base_simulator):
         _illCi = 1 + 1 / 6 * (np.cos(self.ph * (-np.sqrt(3) * self.x - self.y) / 2 + self.p2) \
                       + np.cos(self.ph * (-np.sqrt(3) * self.x + self.y) / 2 + self.p1) \
                       + np.cos(self.ph * self.y + self.p1 - self.p2))
-        return _illCi
+        return [_illCi]
 
     def _illAx(self):
         # Axial polarisation
         _illAx = 1 + 2 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) \
                       + np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
                       + np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2))
-        return _illAx
+        return [_illAx]
 
     def _illIp(self):
         # In-plane polarisation
         _illIp = 1 - 1 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) \
                       + np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
                       + np.cos(self.ph * (self.y + np.sqrt(3) * self.x) / 2 + self.p2))
-        return _illIp
+        return [_illIp]
 
 class RightHexSim_simulator(Base_simulator):
     '''

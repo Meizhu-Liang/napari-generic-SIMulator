@@ -48,8 +48,9 @@ class Base_simulator:
     random_seed = 123
     drift = 0.1
     defocus = 1  # de-focus aberration in um
-    add_sph = None  # adding primary spherical aberration
+    # add_sph = None  # adding primary spherical aberration
     spherical = 0
+    sph_abb = 0
 
     def initialise(self):
         np.random.seed(self.random_seed)
@@ -138,7 +139,7 @@ class Base_simulator:
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
                     if self.pol == 'axial':
-                        # gets illumination from the child class
+                        # get illumination from the child class
                         ill = self._illAx()
                     elif self.pol == 'circular':
                         ill = self._illCi()

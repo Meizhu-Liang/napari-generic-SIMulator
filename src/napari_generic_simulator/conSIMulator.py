@@ -26,21 +26,21 @@ class ConSim_simulator(Base_simulator):
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
 
     def _illCi(self):
-        # Circular polarisation
+        # illumination with circular polarisation in 3 angles
         _illCi_0 = 1
         _illCi_1 = 1
         _illCi_2 = 1
         return _illCi_0, _illCi_1, _illCi_2
 
     def _illAx(self):
-        # Axial polarisation
+        # illumination with axial polarisation in 3 angles
         _illAx_0 = 1 + 1 / 3 * np.cos(self.ph * (-2 * self.x) + self.p1)
         _illAx_1 = 1 + 1 / 3 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self.p1)
         _illAx_2 = 1 + 1 / 3 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self.p1)
         return _illAx_0, _illAx_1, _illAx_2
 
     def _illIp(self):
-        # In-plane polarisation
+        # illumination with in-plane polarisation in 3 angles
         _illIp_0 = 1 - 1 / 3 * np.cos(self.ph * (-2 * self.x) + self.p1)
         _illIp_1 = 1 - 1 / 3 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self.p1)
         _illIp_2 = 1 - 1 / 3 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self.p1)
