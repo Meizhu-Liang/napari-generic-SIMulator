@@ -18,7 +18,6 @@ except:
 
 try:
     import torch
-
     print('torch imported')
     import_torch = True
     if torch.has_cuda:
