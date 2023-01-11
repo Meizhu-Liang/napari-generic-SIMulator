@@ -8,11 +8,13 @@ import numpy as np
 import time
 import tifffile
 
+xp = np
 try:
     import cupy as cp
 
     print('cupy imported')
     import_cp = True
+    xp = cp
 except:
     import_cp = False
 
@@ -107,10 +109,8 @@ class Base_simulator:
         self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
         self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
 
-        if self.acc == 0:
-            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-        elif self.acc == 3:
-            self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+        if (self.acc == 0) | (self.acc == 3):
+            self.phasetilts = xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
             self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
                                           device=self._tdev)
@@ -144,15 +144,10 @@ class Base_simulator:
                         ill = self._illCi()
                     else:
                         ill = self._illIp()
-                    if self.acc == 0:
-                        px = np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis]
-                        py = np.exp(1j * np.single(self.y * self.kxy))
-                        pz = (np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis]
-                        self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                    elif self.acc == 3:
-                        px = cp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
-                        py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
-                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis])
+                    if (self.acc == 0) | (self.acc == 3):
+                        px = xp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
+                        py = xp.array(np.exp(1j * np.single(self.y * self.kxy)))
+                        pz = xp.array((np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis])
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     else:
                         px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
@@ -309,22 +304,16 @@ class Base_simulator:
         self.aotf_y = np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
-        if self.acc == 0:
-            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
-        elif self.acc == 3:
-            img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+        if (self.acc == 0) | (self.acc == 3):
+            img = xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         else:
             img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
 
         for i in range(self._nsteps):
-            if self.acc == 0:
-                ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = abs(
-                    np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
-            elif self.acc == 3:
-                ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[cp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = cp.abs(
-                    cp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+            if (self.acc == 0) | (self.acc == 3):
+                ootf = xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                img[xp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = xp.abs(
+                    xp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
             else:
                 ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev), ) * self.phasetilts[i, :, :, :]
                 img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
@@ -389,10 +378,8 @@ class Base_simulator:
 
         self._nsteps = self._phaseStep * self._angleStep
         self.points[:, 2] -= self.zrange
-        if self.acc == 0:
-            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
-        elif self.acc == 3:
-            img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+        if (self.acc == 0) | (self.acc == 3):
+            img = xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         else:
             img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
 
@@ -403,14 +390,10 @@ class Base_simulator:
                 yield f'planes at z={z:.2f}, {msg}'
             self.points[:, 2] += self.dzn
             for i in range(self._nsteps):
-                if self.acc == 0:
-                    ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                    img[zplane, :, :] = abs(
-                        np.fft.ifft2(np.sum(ootf, axis=0), (self.N, self.N)))
-                elif self.acc == 3:
-                    ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                    img[zplane, :, :] = cp.abs(
-                        cp.fft.ifft2(cp.sum(ootf, axis=0), (self.N, self.N)))
+                if (self.acc == 0) | (self.acc == 3):
+                    ootf = xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                    img[zplane, :, :] = xp.abs(
+                        xp.fft.ifft2(xp.sum(ootf, axis=0), (self.N, self.N)))
                 else:
                     ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i, :, :, :]
                     img[zplane, :, :] = (torch.abs(
