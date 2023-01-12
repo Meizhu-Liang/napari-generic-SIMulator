@@ -278,13 +278,17 @@ class Base_simulator:
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
-            c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
-            psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
-            # c = (np.exp(
-            #     1j * (z * self.n * 2 * np.pi / self.wavelength *
-            #           np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
-            # psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            # c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
+            # psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            c = (np.exp(
+                1j * (z * self.n * 2 * np.pi / self.wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
+            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
+
+        # Normalised so power in resampled psf(see later on) is unity in focal plane
+        psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
+        self.psf_z0 = psf[int(self.Nzn / 2 + 10), :, :]  # psf at z=0
         # Normalised so power in resampled psf(see later on) is unity in focal plane
         psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
         return psf
