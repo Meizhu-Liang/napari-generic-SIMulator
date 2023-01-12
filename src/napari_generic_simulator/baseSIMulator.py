@@ -36,14 +36,14 @@ class Base_simulator:
     acc = None  # acceleration
     psf_calc = None
     _tdev = None
-    N = 128  # Points to use in FFT
+    N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
     magnification = 60  # Objective magnification
     NA = 1.1  # Numerical aperture at sample
     n = 1.33  # Refractive index at sample
     wavelength = 0.52  # Wavelength in um
     npoints = 500  # Number of random points
-    zrange = 3.5  # distance either side of focus to calculate, in microns, could be arbitrary
+    zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
@@ -272,17 +272,18 @@ class Base_simulator:
         kx = self.krmax * self.kx
         ky = self.krmax * self.ky
         kr2 = (kx ** 2 + ky ** 2)  # square kr
+        2 * np.pi * self.n / self.wavelength
         kz = self.xp.sqrt((self.k0 ** 2 - kr2) + 0j)
         nz = 0
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
-            # c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
-            # psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
-            c = (np.exp(
-                1j * (z * self.n * 2 * np.pi / self.wavelength *
-                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
-            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
+            psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            # c = (np.exp(
+            #     1j * (z * self.n * 2 * np.pi / self.wavelength *
+            #           np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
+            # psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
         psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
