@@ -70,8 +70,8 @@ class SIMulator(QWidget):
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
         self.Psf = ComboBox(value=Psf_calc.VECTOR, label='Psf calculation', choices=Psf_calc)
-        self.N = SpinBox(value=128, name='spin', label='N pixel')
-        self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
+        self.N = SpinBox(value=512, name='spin', label='N pixel')
+        self.pixel_size = FloatSpinBox(value=5.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
         self.NA = FloatSpinBox(value=1.1, name='spin', label='NA', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
@@ -207,7 +207,6 @@ class SIMulator(QWidget):
                 else:
                     try:
                         self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
-                        self._viewer.add_image(self.sim.aotf_y, name='OTF perpendicular to y')
                     except Exception as e:
                         print(str(e))
 
