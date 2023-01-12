@@ -285,10 +285,6 @@ class Base_simulator:
                       np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
-
-        # Normalised so power in resampled psf(see later on) is unity in focal plane
-        psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
-        self.psf_z0 = psf[int(self.Nzn / 2 + 10), :, :]  # psf at z=0
         # Normalised so power in resampled psf(see later on) is unity in focal plane
         psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
         return psf
@@ -317,7 +313,6 @@ class Base_simulator:
         aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
         if self.acc == 3:
             aotf = cp.asnumpy(aotf)
-        print(type(aotf))
         m = max(aotf.flatten())
         aotf_z = []
         if self.acc == 3:
