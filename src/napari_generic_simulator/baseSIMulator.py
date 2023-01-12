@@ -323,7 +323,8 @@ class Base_simulator:
             aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
         if self.acc == 3:
             self.aotf_x = cp.asnumpy(self.aotf_x)
-        self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+        # aotf_x is the same as aotf_y
+        # self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
         if (self.acc == 0) | (self.acc == 3):
@@ -385,12 +386,14 @@ class Base_simulator:
         yield "psf calculated"
 
         # Calculating 3d otf
-        psf = np.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
+        psf = self.xp.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
         self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
         if self.acc == 3:
             self.psf_z0 = cp.asnumpy(self.psf_z0)
-        otf = np.fft.fftn(psf)
-        aotf = abs(np.fft.fftshift(otf))  # absolute otf
+        otf = self.xp.fft.fftn(psf)
+        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
+        if self.acc == 3:
+            aotf = cp.asnumpy(aotf)
         m = max(aotf.flatten())
         aotf_z = []
         for x in range(self.Nzn):
@@ -399,7 +402,8 @@ class Base_simulator:
             aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
         if self.acc == 3:
             self.aotf_x = cp.asnumpy(self.aotf_x)
-        self.aotf_y = np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+        # aotf_x is the same as aotf_y
+        # self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
         self._nsteps = self._phaseStep * self._angleStep
