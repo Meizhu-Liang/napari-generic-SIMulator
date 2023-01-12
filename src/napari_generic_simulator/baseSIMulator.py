@@ -8,13 +8,12 @@ import numpy as np
 import time
 import tifffile
 
-xp = np
+
 try:
     import cupy as cp
 
     print('cupy imported')
     import_cp = True
-    xp = cp
 except:
     import_cp = False
 
@@ -32,6 +31,7 @@ except:
 
 
 class Base_simulator:
+    xp = np
     pol = None  # polarisation
     acc = None  # acceleration
     psf_calc = None
@@ -54,6 +54,8 @@ class Base_simulator:
     sph_abb = 0
 
     def initialise(self):
+        if self.acc == 3:
+            self.xp = cp
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
         self.sigmaz = self.fwhmz / 2.355
@@ -65,8 +67,8 @@ class Base_simulator:
         oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
         self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
         self.k0 = 2 * np.pi * self.n / self.wavelength
-        self.kx, self.ky = xp.meshgrid(xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
-                                       xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
+        self.kx, self.ky = self.xp.meshgrid(self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
+                                       self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
         self.krmax = self.NA * self.k0 / self.n
         self.kr2 = self.kx ** 2 + self.ky ** 2
@@ -110,7 +112,7 @@ class Base_simulator:
         self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
 
         if (self.acc == 0) | (self.acc == 3):
-            self.phasetilts = xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=xp.complex64)
+            self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
         else:
             self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
                                           device=self._tdev)
@@ -173,13 +175,13 @@ class Base_simulator:
 
         # Calculating psf
         nz = 0
-        psf = xp.zeros((self.Nzn, self.Nn, self.Nn))
+        psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
 
         # calculate intensity of random arrangement of dipoles excited by a given polarisation s
         # p are the vertices of an dodecahedron
-        p0 = xp.reshape(xp.array([0, 1, 0]), (1, 3))
-        p1 = xp.reshape(xp.array([-0.666666, 0., 0.745353,
+        p0 = self.xp.reshape(self.xp.array([0, 1, 0]), (1, 3))
+        p1 = self.xp.reshape(self.xp.array([-0.666666, 0., 0.745353,
                                   0.666666, 0., -0.745353,
                                   -0.127322, -0.93417, 0.333332,
                                   -0.127322, 0.93417, 0.333332,
@@ -200,7 +202,7 @@ class Base_simulator:
                                   0.127322, -0.93417, -0.333332,
                                   0.127322, 0.93417, -0.333332]), (20, 3))
         # p2 are the vertices of the same icosahedron in a different orientation
-        p2 = xp.reshape(xp.array([-1.37638, 0., 0.262866,
+        p2 = self.xp.reshape(self.xp.array([-1.37638, 0., 0.262866,
                                   1.37638, 0., -0.262866,
                                   -0.425325, -1.30902, 0.262866,
                                   -0.425325, 1.30902, 0.262866,
@@ -220,32 +222,32 @@ class Base_simulator:
                                   0.262866, 0.809017, -1.11352,
                                   0.425325, -1.30902, -0.262866,
                                   0.425325, 1.30902, -0.262866]), (20, 3))
-        p2 = p2 / xp.linalg.norm(p2[0, :])
+        p2 = p2 / self.xp.linalg.norm(p2[0, :])
 
         p = p1
-        s1 = xp.array([1, 0, 0])  # x polarised illumination orientation
+        s1 = self.xp.array([1, 0, 0])  # x polarised illumination orientation
         excitation1 = (s1 @ p.T) ** 2
-        s2 = xp.array([0, 1, 0])  # y polarised illumination orientation
+        s2 = self.xp.array([0, 1, 0])  # y polarised illumination orientation
         excitation2 = (s2 @ p.T) ** 2
-        s3 = xp.array([0, 0, 1])  # z polarised illumination orientation
+        s3 = self.xp.array([0, 0, 1])  # z polarised illumination orientation
         excitation3 = (s3 @ p.T) ** 2
 
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
-            fx1 = self.k0 * (self.k0 * ky ** 2 + kx ** 2 * kz) / (xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Exx = xp.fft.fftshift(xp.fft.fft2(fx1))  # x-polarised field at camera for x-oriented dipole
-            fy1 = self.k0 * kx * ky * (kz - self.k0) / (xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Exy = xp.fft.fftshift(xp.fft.fft2(fy1))  # y-polarised field at camera for x-oriented dipole
-            fx2 = self.k0 * kx * ky * (kz - self.k0) / (xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Eyx = xp.fft.fftshift(xp.fft.fft2(fx2))  # x-polarised field at camera for y-oriented dipole
-            fy2 = self.k0 * (self.k0 * kx ** 2 + ky ** 2 * kz) / (xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Eyy = xp.fft.fftshift(xp.fft.fft2(fy2))  # y-polarised field at camera for y-oriented dipole
-            fx3 = self.k0 * kx / xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
-            Ezx = xp.fft.fftshift(xp.fft.fft2(fx3))  # x-polarised field at camera for z-oriented dipole
-            fy3 = self.k0 * ky / xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
-            Ezy = xp.fft.fftshift(xp.fft.fft2(fy3))  # y-polarised field at camera for z-oriented dipole
-            intensityx = xp.zeros((self.Nn, self.Nn))
-            intensityy = xp.zeros((self.Nn, self.Nn))
-            intensityz = xp.zeros((self.Nn, self.Nn))
+            fx1 = self.k0 * (self.k0 * ky ** 2 + kx ** 2 * kz) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Exx = self.xp.fft.fftshift(self.xp.fft.fft2(fx1))  # x-polarised field at camera for x-oriented dipole
+            fy1 = self.k0 * kx * ky * (kz - self.k0) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Exy = self.xp.fft.fftshift(self.xp.fft.fft2(fy1))  # y-polarised field at camera for x-oriented dipole
+            fx2 = self.k0 * kx * ky * (kz - self.k0) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Eyx = self.xp.fft.fftshift(self.xp.fft.fft2(fx2))  # x-polarised field at camera for y-oriented dipole
+            fy2 = self.k0 * (self.k0 * kx ** 2 + ky ** 2 * kz) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Eyy = self.xp.fft.fftshift(self.xp.fft.fft2(fy2))  # y-polarised field at camera for y-oriented dipole
+            fx3 = self.k0 * kx / self.xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
+            Ezx = self.xp.fft.fftshift(self.xp.fft.fft2(fx3))  # x-polarised field at camera for z-oriented dipole
+            fy3 = self.k0 * ky / self.xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
+            Ezy = self.xp.fft.fftshift(self.xp.fft.fft2(fy3))  # y-polarised field at camera for z-oriented dipole
+            intensityx = self.xp.zeros((self.Nn, self.Nn))
+            intensityy = self.xp.zeros((self.Nn, self.Nn))
+            intensityz = self.xp.zeros((self.Nn, self.Nn))
             for i in np.arange(p.shape[0]):
                 intensityx = intensityx + excitation1[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2
                                                             + abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
@@ -260,7 +262,7 @@ class Base_simulator:
                 intensity = (intensityx + intensityy + intensityz) / 3
             else:
                 intensity = intensityx + intensityy  # for in plane illumination
-            psf[nz, :, :] = intensity * xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            psf[nz, :, :] = intensity * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
 
             nz = nz + 1
         return psf
@@ -270,15 +272,20 @@ class Base_simulator:
         kx = self.krmax * self.kx
         ky = self.krmax * self.ky
         kr2 = (kx ** 2 + ky ** 2)  # square kr
-        kz = xp.sqrt((self.k0 ** 2 - kr2) + 0j)
+        kz = self.xp.sqrt((self.k0 ** 2 - kr2) + 0j)
         nz = 0
-        psf = xp.zeros((self.Nzn, self.Nn, self.Nn))
+        psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
-            c = (xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
-            psf[nz, :, :] = abs(xp.fft.fftshift(xp.fft.ifft2(c))) ** 2 * xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            # c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
+            # psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            c = (np.exp(
+                1j * (z * self.n * 2 * np.pi / self.wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
+            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
+        psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
         return psf
 
     def raw_image_stack(self):
@@ -301,33 +308,34 @@ class Base_simulator:
         yield "psf calculated"
 
         # Calculating 3d otf
-        otf = xp.fft.fftn(psf)
-        aotf = abs(xp.fft.fftshift(otf))  # absolute otf
+        otf = self.xp.fft.fftn(psf)
+        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
         if self.acc == 3:
             aotf = cp.asnumpy(aotf)
+        print(type(aotf))
         m = max(aotf.flatten())
         aotf_z = []
         if self.acc == 3:
             aotf = cp.array(aotf)
         for x in range(self.Nzn):
-            aotf_z.append(xp.sum(aotf[x]))
-        self.aotf_x = xp.log(
+            aotf_z.append(self.xp.sum(aotf[x]))
+        self.aotf_x = self.xp.log(
             aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
         if self.acc == 3:
             self.aotf_x = cp.asnumpy(self.aotf_x)
-        self.aotf_y = xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+        self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
         if (self.acc == 0) | (self.acc == 3):
-            img = xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=xp.single)
+            img = self.xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=self.xp.single)
         else:
             img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
 
         for i in range(self._nsteps):
             if (self.acc == 0) | (self.acc == 3):
-                ootf = xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[xp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = xp.abs(
-                    xp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+                ootf = self.xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                img[self.xp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = self.xp.abs(
+                    self.xp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
             else:
                 ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev), ) * self.phasetilts[i, :, :, :]
                 img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
@@ -397,7 +405,7 @@ class Base_simulator:
         self._nsteps = self._phaseStep * self._angleStep
         self.points[:, 2] -= self.zrange
         if (self.acc == 0) | (self.acc == 3):
-            img = xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+            img = self.xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
         else:
             img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
 
@@ -409,9 +417,9 @@ class Base_simulator:
             self.points[:, 2] += self.dzn
             for i in range(self._nsteps):
                 if (self.acc == 0) | (self.acc == 3):
-                    ootf = xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                    img[zplane, :, :] = xp.abs(
-                        xp.fft.ifft2(xp.sum(ootf, axis=0), (self.N, self.N)))
+                    ootf = self.xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                    img[zplane, :, :] = self.xp.abs(
+                        self.xp.fft.ifft2(self.xp.sum(ootf, axis=0), (self.N, self.N)))
                 else:
                     ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i, :, :, :]
                     img[zplane, :, :] = (torch.abs(
