@@ -1,35 +1,40 @@
 """
-The parent class to simulate raw data for SIM. @author: Meizhu Liang @Imperial College
-Some calculations are adapted by work by Mark Neil @Imperial College
+The parent class to simulate raw data for SIM.
+Some calculations are adapted by the work by Mark Neil @Imperial College London
 """
+__author__ = "Meizhu Liang @Imperial College London"
 
 import numpy as np
 import time
 import tifffile
 
+
 try:
     import cupy as cp
+
     print('cupy imported')
     import_cp = True
 except:
     import_cp = False
 
-# try:
-#     import torch
-#     import_torch = False
-#     torch_GPU = False
-#     # if torch.has_cuda or torch.has_mps:
-#     #     torch_GPU = True
-#     # else:
-#     #     torch_GPU = False
-# except:
-import torch
-import_torch = False
-torch_GPU = False
+try:
+    import torch
+    print('torch imported')
+    import_torch = True
+    if torch.has_cuda:
+        torch_GPU = True
+    else:
+        torch_GPU = False
+except:
+    import_torch = False
+    torch_GPU = False
+
 
 class Base_simulator:
+    xp = np
     pol = None  # polarisation
     acc = None  # acceleration
+    psf_calc = None
     _tdev = None
     N = 512  # Points to use in FFT
     pixel_size = 5.5  # Camera pixel size
@@ -41,13 +46,18 @@ class Base_simulator:
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
-    random_seed = None
-
+    random_seed = 123
+    drift = 0
+    defocus = 0  # de-focus aberration in um
+    # add_sph = None  # adding primary spherical aberration
+    spherical = 0
+    sph_abb = 0
 
     def initialise(self):
+        if self.acc == 3:
+            self.xp = cp
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
-        self.eta = self.n / self.NA  # right-angle Hex SIM
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
         self.dxn = self.wavelength / (4 * self.NA)  # 2 * Nyquist frequency in x and y.
@@ -56,9 +66,13 @@ class Base_simulator:
         self.res = self.wavelength / (2 * self.NA)
         oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
         self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
-        self.kx, self.ky = np.meshgrid(np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
-                             np.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
+        self.k0 = 2 * np.pi * self.n / self.wavelength
+        self.kx, self.ky = self.xp.meshgrid(self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
+                                       self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
+        self.krmax = self.NA * self.k0 / self.n
+        self.kr2 = self.kx ** 2 + self.ky ** 2
+        self.spherical = self.sph_abb * np.sqrt(5) * (6 * (self.kr ** 4 - self.kr ** 2) + 1)
         self.csum = sum(sum((self.kr < 1)))  # normalise by csum so peak intensity is 1
 
         self.alpha = np.arcsin(self.NA / self.n)
@@ -71,11 +85,15 @@ class Base_simulator:
         if self.Nz < self.Nzn:
             self.Nz = self.Nzn
             self.dz = self.dzn
-        # self._tdev = torch.device('mps' if self.acc == 3 else 'cpu')
-        # self._tdev = torch.device('cuda' if self.acc == 3 else 'cpu')
+        else:
+            self.Nzn = self.Nz
+            self.dzn = self.dz
+        self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
 
     def point_cloud(self):
-
+        """
+        Generates a point-cloud as the object in the imaging system.
+        """
         rad = 10  # radius of sphere of points
         # Multiply the points several times to get the enough number
         pointsxn = (2 * np.random.rand(self.npoints * 3, 3) - 1) * [rad, rad, rad]
@@ -86,161 +104,243 @@ class Base_simulator:
         self.points[:, 2] = self.points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
 
     def phase_tilts(self):
-        """Generate phase tilts in frequency space"""
-        self._nsteps = self._phaseStep * self._angleStep
+        """Generates phase tilts in frequency space"""
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
         self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
         self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
 
-        if self.acc == 0:
-            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-        elif self.acc == 1:
-            self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+        if (self.acc == 0) | (self.acc == 3):
+            self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
         else:
-            # self.phasetilts = torch.empty((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
-            #                               device=self._tdev)
-            # self.phasetilts = torch.from_numpy(np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.float32)).to(dtype=torch.float32, device=self._tdev)
-            # self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-            self.pxyz_r = torch.from_numpy(np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn))).to(dtype=torch.float32, device=self._tdev)
-            self.pxyz_i = torch.from_numpy(np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn))).to(dtype=torch.float32,
-                                                                                                  device=self._tdev)
+            self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
+                                          device=self._tdev)
+
         start_time = time.time()
 
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = -1
-
-        for astep in range(self._angleStep):
-            for pstep in range(self._phaseStep):
+        self.ph = self._eta * 4 * np.pi * self.NA / self.wavelength
+        for pstep in range(self._phaseStep):
+            for astep in range(self._angleStep):
+                self.points += self.drift * np.random.standard_normal(3)
+                isteps = pstep + self._angleStep * astep  # index of the steps
                 for i in range(self.npoints):
                     prog = (100 * itcount) // total_its
                     if prog > lastProg:
                         lastProg = prog
                         yield f'Phase tilts calculation: {prog:.1f}% done'
                     itcount += 1
-                    isteps = pstep + self._angleStep * astep  # index of the steps
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
-                    z = self.points[i, 2] + self.dz / self._nsteps * (isteps)
-                    self.ph = self.eta * 4 * np.pi * self.NA / self.wavelength
+                    z = self.points[i, 2] + self.dz / self._nsteps * isteps
+                    self.ph = self._eta * 4 * np.pi * self.NA / self.wavelength
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
-                    self._ill()  # gets illumination from the child class
-                    if self.pol == 1:
-                        ill = self._illAx
-                    elif self.pol == 2:
-                        ill = self._illCi
+                    if self.pol == 'axial':
+                        # get illumination from the child class
+                        ill = self._illAx()
+                    elif self.pol == 'circular':
+                        ill = self._illCi()
                     else:
-                        ill = self._illIp
+                        ill = self._illIp()
                     if self.acc == 0:
                         px = np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis]
                         py = np.exp(1j * np.single(self.y * self.kxy))
-                        pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
+                        pz = (np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis]
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                    elif self.acc == 1:
+                    elif self.acc == 3:
                         px = cp.array(np.exp(1j * np.single(self.x * self.kxy))[:, np.newaxis])
                         py = cp.array(np.exp(1j * np.single(self.y * self.kxy)))
-                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
+                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis])
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     else:
-                        # px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
-                        # py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
-                        # pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
-                        #                   device=self._tdev)
-                        # self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
-                        px = np.single(self.x * self.kxy)
-                        py = np.single(self.y * self.kxy)
-                        pz = np.single(z * self.kz)
-                        px_r = torch.from_numpy(np.cos(px)).to(dtype= torch.float32, device=self._tdev)
-                        px_i = torch.from_numpy(np.sin(px)).to(dtype= torch.float32, device=self._tdev)
-                        py_r = torch.from_numpy(np.cos(py)).to(dtype= torch.float32, device=self._tdev)
-                        py_i = torch.from_numpy(np.sin(py)).to(dtype= torch.float32, device=self._tdev)
-                        pz_r = torch.from_numpy(np.cos(pz) * ill).to(dtype= torch.float32, device=self._tdev)
-                        pz_i = torch.from_numpy(np.sin(pz) * ill).to(dtype= torch.float32, device=self._tdev)
-                        # pxy_r = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
-                        # pxy_i = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))+ torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None]  * torch.from_numpy(np.cos(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)
-                        pxy_r = (px_r[:, None] * py_r - px_i[:, None] * py_i).to(device=self._tdev)
-                        pxy_i = (px_r[:, None] * py_i + px_i[:, None] * py_r).to(device=self._tdev)
-                        self.pxyz_r[isteps, :, :, :] += (
-                                    pz_r[:, None, None] * pxy_r * (10 ** 3) - pz_i[:, None, None] * pxy_i * (10 ** 3))
-                        self.pxyz_i[isteps, :, :, :] += (pz_i[:, None, None] * pxy_r + pz_r[:, None, None] * pxy_i)
-
-                        # pxyz_r = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev) * pz_r[..., None, None] - pxy_i * pz_i[..., None, None]
-                        # pxyz_i = (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev) * pz_i[..., None, None] + pxy_i * (torch.from_numpy(np.cos(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.cos(np.single(self.y * self.kxy))) - torch.from_numpy(np.sin(np.single(self.x * self.kxy)))[..., None] * torch.from_numpy(np.sin(np.single(self.y * self.kxy)))).to(dtype = torch.float32, device=self._tdev)[..., None, None]
-                        # self.phasetilts[isteps, :, :, :] += pxyz_r.to('cpu').numpy() + 1j * pxyz_i.to('cpu').numpy()
-                        # self.phasetilts[isteps, :, :, :] += pxyz_r.numpy() + 1j * pxyz_i.numpy()
-        if self.acc == 3:
-            self.phasetilts = self.pxyz_r.to('cpu').numpy() + 1j * self.pxyz_i.to('cpu').numpy()
-            # print(pz_i)
-            print(self.pxyz_r)
+                        px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
+                        py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
+                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill[astep]),
+                                             device=self._tdev)
+                        self.phasetilts[isteps, :, :, :] += (px[..., None] * py) * pz[..., None, None]
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
-    def raw_image_stack(self):
-        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
-        self.initialise()
-        self.point_cloud()
-        yield "Point cloud calculated"
-
-        for msg in self.phase_tilts():
-            yield msg
+    def get_vector_psf(self):
+        # use krmax to define the pupil function
+        kx = self.krmax * (self.kx + 1e-15)
+        ky = self.krmax * (self.ky + 1e-15)
+        kr2 = (kx ** 2 + ky ** 2)  # square kr
+        e_in = 1.0 * (kr2 < self.krmax ** 2)
+        kz = np.sqrt((self.k0 ** 2 - kr2) + 0j)
 
         # Calculating psf
         nz = 0
-        psf = np.zeros((self.Nzn, self.Nn, self.Nn))
+        psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
+        pupil = self.kr < 1
+
+        # calculate intensity of random arrangement of dipoles excited by a given polarisation s
+        # p are the vertices of an dodecahedron
+        p0 = self.xp.reshape(self.xp.array([0, 1, 0]), (1, 3))
+        p1 = self.xp.reshape(self.xp.array([-0.666666, 0., 0.745353,
+                                  0.666666, 0., -0.745353,
+                                  -0.127322, -0.93417, 0.333332,
+                                  -0.127322, 0.93417, 0.333332,
+                                  0.745355, -0.577349, -0.333332,
+                                  0.745355, 0.577349, -0.333332,
+                                  0.333332, -0.577349, 0.745355,
+                                  0.333332, 0.577349, 0.745355,
+                                  -0.872676, -0.356821, -0.333334,
+                                  -0.872676, 0.356821, -0.333334,
+                                  0.872676, -0.356821, 0.333334,
+                                  0.872676, 0.356821, 0.333334,
+                                  1.46634 * 1e-6, 0., -0.999998,
+                                  -0.745355, -0.577349, 0.333332,
+                                  -0.745355, 0.577349, 0.333332,
+                                  -1.46634 * 1e-6, 0., 0.999998,
+                                  -0.333332, -0.577349, -0.745355,
+                                  -0.333332, 0.577349, -0.745355,
+                                  0.127322, -0.93417, -0.333332,
+                                  0.127322, 0.93417, -0.333332]), (20, 3))
+        # p2 are the vertices of the same icosahedron in a different orientation
+        p2 = self.xp.reshape(self.xp.array([-1.37638, 0., 0.262866,
+                                  1.37638, 0., -0.262866,
+                                  -0.425325, -1.30902, 0.262866,
+                                  -0.425325, 1.30902, 0.262866,
+                                  1.11352, -0.809017, 0.262866,
+                                  1.11352, 0.809017, 0.262866,
+                                  -0.262866, -0.809017, 1.11352,
+                                  -0.262866, 0.809017, 1.11352,
+                                  -0.688191, -0.5, -1.11352,
+                                  -0.688191, 0.5, -1.11352,
+                                  0.688191, -0.5, 1.11352,
+                                  0.688191, 0.5, 1.11352,
+                                  0.850651, 0., -1.11352,
+                                  -1.11352, -0.809017, -0.262866,
+                                  -1.11352, 0.809017, -0.262866,
+                                  -0.850651, 0., 1.11352,
+                                  0.262866, -0.809017, -1.11352,
+                                  0.262866, 0.809017, -1.11352,
+                                  0.425325, -1.30902, -0.262866,
+                                  0.425325, 1.30902, -0.262866]), (20, 3))
+        p2 = p2 / self.xp.linalg.norm(p2[0, :])
+
+        p = p1
+        s1 = self.xp.array([1, 0, 0])  # x polarised illumination orientation
+        excitation1 = (s1 @ p.T) ** 2
+        s2 = self.xp.array([0, 1, 0])  # y polarised illumination orientation
+        excitation2 = (s2 @ p.T) ** 2
+        s3 = self.xp.array([0, 0, 1])  # z polarised illumination orientation
+        excitation3 = (s3 @ p.T) ** 2
+
+        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+            fx1 = self.k0 * (self.k0 * ky ** 2 + kx ** 2 * kz) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Exx = self.xp.fft.fftshift(self.xp.fft.fft2(fx1))  # x-polarised field at camera for x-oriented dipole
+            fy1 = self.k0 * kx * ky * (kz - self.k0) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Exy = self.xp.fft.fftshift(self.xp.fft.fft2(fy1))  # y-polarised field at camera for x-oriented dipole
+            fx2 = self.k0 * kx * ky * (kz - self.k0) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Eyx = self.xp.fft.fftshift(self.xp.fft.fft2(fx2))  # x-polarised field at camera for y-oriented dipole
+            fy2 = self.k0 * (self.k0 * kx ** 2 + ky ** 2 * kz) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
+            Eyy = self.xp.fft.fftshift(self.xp.fft.fft2(fy2))  # y-polarised field at camera for y-oriented dipole
+            fx3 = self.k0 * kx / self.xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
+            Ezx = self.xp.fft.fftshift(self.xp.fft.fft2(fx3))  # x-polarised field at camera for z-oriented dipole
+            fy3 = self.k0 * ky / self.xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
+            Ezy = self.xp.fft.fftshift(self.xp.fft.fft2(fy3))  # y-polarised field at camera for z-oriented dipole
+            intensityx = self.xp.zeros((self.Nn, self.Nn))
+            intensityy = self.xp.zeros((self.Nn, self.Nn))
+            intensityz = self.xp.zeros((self.Nn, self.Nn))
+            for i in np.arange(p.shape[0]):
+                intensityx = intensityx + excitation1[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2
+                                                            + abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
+                intensityy = intensityy + excitation2[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
+                                                            abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
+                intensityz = intensityz + excitation3[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
+                                                           abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
+            if self.pol == 'axial':
+                intensity = intensityz  # for axially polarised illumination
+            elif self.pol == 'circular':
+                # dipoles that re-orient between excitation and emmission and maybe for circular polarised illumination
+                intensity = (intensityx + intensityy + intensityz) / 3
+            else:
+                intensity = intensityx + intensityy  # for in plane illumination
+            psf[nz, :, :] = intensity * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+
+            nz = nz + 1
+        return psf
+
+    def get_scalar_psf(self):
+        # use krmax to define the pupil function
+        kx = self.krmax * self.kx
+        ky = self.krmax * self.ky
+        kr2 = (kx ** 2 + ky ** 2)  # square kr
+        2 * np.pi * self.n / self.wavelength
+        kz = self.xp.sqrt((self.k0 ** 2 - kr2) + 0j)
+        nz = 0
+        psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+            # c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
+            # psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             c = (np.exp(
                 1j * (z * self.n * 2 * np.pi / self.wavelength *
                       np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
-        psf = psf * self.Nn ** 2 / np.sum(pupil) * self.Nz / self.Nzn
-        self.psf_z0 = psf[int(self.Nzn / 2 + 10), :, :]  # psf at z=0
+        psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
+        return psf
+
+    def raw_image_stack(self):
+        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack.
+        self.initialise()
+        self.drift = 0.0  # no random walk using this method
+        self.point_cloud()
+        yield "Point cloud calculated"
+
+        self._nsteps = self._phaseStep * self._angleStep
+        for msg in self.phase_tilts():
+            yield msg
+        if self.psf_calc == 'vector':
+            psf = self.get_vector_psf()
+        else:
+            psf = self.get_scalar_psf()
+        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
+        if self.acc == 3:
+            self.psf_z0 = cp.asnumpy(self.psf_z0)
         yield "psf calculated"
 
         # Calculating 3d otf
-        otf = np.fft.fftn(psf)
-        aotf = abs(np.fft.fftshift(otf))  # absolute otf
+        otf = self.xp.fft.fftn(psf)
+        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
+        if self.acc == 3:
+            aotf = cp.asnumpy(aotf)
         m = max(aotf.flatten())
         aotf_z = []
+        if self.acc == 3:
+            aotf = cp.array(aotf)
         for x in range(self.Nzn):
-            aotf_z.append(np.sum(aotf[x]))
-        self.aotf_x = np.log(
+            aotf_z.append(self.xp.sum(aotf[x]))
+        self.aotf_x = self.xp.log(
             aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
-        self.aotf_y = np.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+        if self.acc == 3:
+            self.aotf_x = cp.asnumpy(self.aotf_x)
+        # aotf_x is the same as aotf_y
+        # self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
-        if self.acc == 0:
-            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
-        elif self.acc == 1:
-            img = cp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
-        # else:
-        #     # img =torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
-        #     img = torch.from_numpy(np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)).to(dtype=torch.float, device=self._tdev)
-        elif self.acc == 3:
-            img = np.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+        if (self.acc == 0) | (self.acc == 3):
+            img = self.xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=self.xp.single)
+        else:
+            img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
 
         for i in range(self._nsteps):
-            if self.acc == 0:
-                ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = abs(
-                    np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
-            elif self.acc == 1:
-                ootf = cp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[cp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = cp.abs(
-                    cp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
-            # else:
-            #     ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i, :, :, :]
-            #     img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
-            #         torch.fft.ifftn(ootf, (self.Nz, self.N, self.N)))).to(torch.float)
-            elif self.acc == 3:
-                ootf = np.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-                img[np.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = abs(
-                    np.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+            if (self.acc == 0) | (self.acc == 3):
+                ootf = self.xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                img[self.xp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = self.xp.abs(
+                    self.xp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
+            else:
+                ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev), ) * self.phasetilts[i, :, :, :]
+                img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
+                    torch.fft.ifftn(ootf, (self.Nz, self.N, self.N)))).to(torch.float)
         # OK to use abs here as signal should be all positive.
         # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
         # But should reduction in sampling be allowed here(Nz < Nzn)?
@@ -254,27 +354,108 @@ class Base_simulator:
             self.img_sum_x = np.sum(img, axis=1)
             self.img = img
         elif self.acc == 1:
-            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
-            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
-            self.img = cp.asnumpy(img)
-        elif self.acc == 2:
             self.img_sum_z = (torch.sum(img, axis=0)).numpy()
             self.img_sum_x = (torch.sum(img, axis=1)).numpy()
             self.img = img.numpy()
-        # elif self.acc == 3:
-        #     self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
-        #     self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
-        #     self.img = img.detach().cpu().numpy()
-
+        elif self.acc == 2:
+            self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
+            self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
+            self.img = img.detach().cpu().numpy()
         elif self.acc == 3:
+            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
+            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
+            self.img = cp.asnumpy(img)
+
+        # Save generated images
+        tifffile.imwrite(stackfilename, self.img)
+        yield "file saved"
+
+        yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
+
+    def raw_image_stack_brownian(self):
+        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
+        self.initialise()
+        self.point_cloud()
+        yield "Point cloud calculated"
+
+        # Calculating psf
+        if self.psf_calc == 'vector':
+            psf = self.get_vector_psf()
+        else:
+            psf = self.get_scalar_psf()
+        yield "psf calculated"
+
+        # Calculating 3d otf
+        psf = self.xp.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
+        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
+        if self.acc == 3:
+            self.psf_z0 = cp.asnumpy(self.psf_z0)
+        otf = self.xp.fft.fftn(psf)
+        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
+        if self.acc == 3:
+            aotf = cp.asnumpy(aotf)
+        m = max(aotf.flatten())
+        aotf_z = []
+        for x in range(self.Nzn):
+            aotf_z.append(np.sum(aotf[x]))
+        self.aotf_x = np.log(
+            aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
+        if self.acc == 3:
+            self.aotf_x = cp.asnumpy(self.aotf_x)
+        # aotf_x is the same as aotf_y
+        # self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+        yield "3d otf calculated"
+
+        self._nsteps = self._phaseStep * self._angleStep
+        self.points[:, 2] -= self.zrange
+        if (self.acc == 0) | (self.acc == 3):
+            img = self.xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=np.single)
+        else:
+            img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
+
+        start_Brownian = time.time()
+        zplane = 0
+        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+            for msg in self.phase_tilts():
+                yield f'planes at z={z:.2f}, {msg}'
+            self.points[:, 2] += self.dzn
+            for i in range(self._nsteps):
+                if (self.acc == 0) | (self.acc == 3):
+                    ootf = self.xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                    img[zplane, :, :] = self.xp.abs(
+                        self.xp.fft.ifft2(self.xp.sum(ootf, axis=0), (self.N, self.N)))
+                else:
+                    ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i, :, :, :]
+                    img[zplane, :, :] = (torch.abs(
+                        torch.fft.ifft2(torch.sum(ootf, axis=0), (self.N, self.N)))).to(torch.float)
+                zplane += 1
+
+        # OK to use abs here as signal should be all positive.
+        # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
+        # But should reduction in sampling be allowed here(Nz < Nzn)?
+
+        stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
+        if self.acc == 0:
+            # raw image stack
+            # raw image sum along z axis
             self.img_sum_z = np.sum(img, axis=0)
             # raw image sum along x (or y) axis
             self.img_sum_x = np.sum(img, axis=1)
             self.img = img
+        elif self.acc == 1:
+            self.img_sum_z = (torch.sum(img, axis=0)).numpy()
+            self.img_sum_x = (torch.sum(img, axis=1)).numpy()
+            self.img = img.numpy()
+        elif self.acc == 2:
+            self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
+            self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
+            self.img = img.detach().cpu().numpy()
+        elif self.acc == 3:
+            self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
+            self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
+            self.img = cp.asnumpy(img)
 
         # Save generated images
         tifffile.imwrite(stackfilename, self.img)
-        print('Raw image stack saved')
-
-        yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
-        print(f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s')
+        elapsed_Brownian = time.time() - start_Brownian
+        yield f'Finished, Phase tilts calculation time:  {elapsed_Brownian:3f}s'
