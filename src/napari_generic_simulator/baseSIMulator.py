@@ -2,7 +2,7 @@
 The parent class to simulate raw data for SIM.
 Some calculations are adapted by the work by Mark Neil @Imperial College London
 """
-__author__ = "Meizhu Liang @Imperial College London"
+__author__ = "Meizhu Liang @Imperial College London", "Mark Neil @Imperial College London"
 
 import numpy as np
 import time
