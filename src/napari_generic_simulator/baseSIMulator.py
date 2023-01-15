@@ -2,12 +2,11 @@
 The parent class to simulate raw data for SIM.
 Some calculations are adapted by the work by Mark Neil @Imperial College London
 """
-__author__ = "Meizhu Liang @Imperial College London", "Mark Neil @Imperial College London"
+__author__ = "Meizhu Liang @Imperial College London"
 
 import numpy as np
 import time
 import tifffile
-
 
 try:
     import cupy as cp
@@ -28,7 +27,6 @@ try:
 except:
     import_torch = False
     torch_GPU = False
-
 
 class Base_simulator:
     xp = np
