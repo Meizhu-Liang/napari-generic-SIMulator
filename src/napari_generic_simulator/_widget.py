@@ -66,22 +66,24 @@ class SIMulator(QWidget):
 
     def parameters(self):
         self.npoints = SpinBox(value=10, name='spin', label='Value:', min=-100, max=10000)
-        self.SIM_mode = ComboBox(value=Sim_mode.HEXSIM_RA, label='SIM_mode', choices=Sim_mode)
+        self.SIM_mode = ComboBox(value=Sim_mode.HEXSIM, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
         self.Psf = ComboBox(value=Psf_calc.VECTOR, label='Psf calculation', choices=Psf_calc)
-        self.N = SpinBox(value=512, name='spin', label='N pixel')
-        self.pixel_size = FloatSpinBox(value=5.5, name='spin', label='pixel size(μm)', step=0.5)
+        self.N = SpinBox(value=128, name='spin', label='N pixel')
+        self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
         self.NA = FloatSpinBox(value=1.1, name='spin', label='NA', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
-        self.wavelength = FloatSpinBox(value=0.60, name='spin', label='wavelength(μm)', min=0.00)
+        self.wavelength = FloatSpinBox(value=0.52, name='spin', label='wavelength(μm)', min=0.00)
         self.n_points = SpinBox(value=500, name='spin', label='N points', max=10000, step=10)
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
-        self.dz = FloatSpinBox(value=0.35, name='spin', label='dz(μm)', min=0.00)
+        self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
+        self.xdrift = FloatSpinBox(value=0.0, name='spin', label='xdrift(nm)', min=0.0, max=1000.0, step=5)
+        self.zdrift = FloatSpinBox(value=50.0, name='spin', label='zdrift(nm)', min=0.0, max=1000.0, step=5)
         self.fwhmz = FloatSpinBox(value=3.0, name='spin', label='fwhmz(μm)', min=0.0, max=10.0)
         self.random_seed = SpinBox(value=123, name='spin', label='random seed')
-        self.drift = FloatSpinBox(value=0.0, name='spin', label='drift(μm)', min=0.0, max=1.0, step=0.01)
+        self.drift = FloatSpinBox(value=0.0, name='spin', label='drift(nm)', min=0.0, max=1000.0, step=5)
         self.defocus = FloatSpinBox(value=0.0, name='spin', label='de-focus(μm)', min=-10.0, max=10, step=0.5)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
         self.lable = Label(value='aberration')
@@ -90,15 +92,18 @@ class SIMulator(QWidget):
         """return the current parameter list"""
         return [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.N.value,
                          self.pixel_size.value, self.magnification.value, self.NA.value, self.n.value,
-                         self.wavelength.value, self.n_points.value, self.zrange.value, self.dz.value,
+                         self.wavelength.value, self.n_points.value, self.zrange.value, self.tpoints.value,
+                         self.xdrift.value, self.zdrift.value,
                          self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
                          self.sph_abb.value]
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
         if self.SIM_mode.value == Sim_mode.HEXSIM:
             self.sim = HexSim_simulator()
+            nsteps = 7
         elif self.SIM_mode.value ==Sim_mode.HEXSIM_RA:
             self.sim = RightHexSim_simulator()
+            nsteps = 5
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             self.sim = ConSim_simulator()
 
@@ -135,7 +140,11 @@ class SIMulator(QWidget):
         self.sim.wavelength = self.wavelength.value
         self.sim.npoints = self.n_points.value
         self.sim.zrange = self.zrange.value
-        self.sim.dz = self.dz.value
+        self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
+        self.tpoints.value = self.sim.tpoints
+        self.sim.dz = 2 * self.zrange.value * nsteps / self.sim.tpoints
+        self.sim.xdrift = self.xdrift.value
+        self.sim.zdrift = self.zdrift.value
         self.sim.fwhmz = self.fwhmz.value
         self.sim.drift = self.drift.value
         self.sim.random_seed = self.random_seed.value
@@ -143,7 +152,8 @@ class SIMulator(QWidget):
         self.sim.sph_abb = self.sph_abb.value
         self.used_par_list = [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.N.value,
                               self.pixel_size.value, self.magnification.value, self.NA.value, self.n.value,
-                              self.wavelength.value, self.n_points.value, self.zrange.value, self.dz.value,
+                              self.wavelength.value, self.n_points.value, self.zrange.value, self.tpoints.value,
+                              self.xdrift.value, self.zdrift.value,
                               self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
                               self.sph_abb.value]
 
@@ -165,10 +175,10 @@ class SIMulator(QWidget):
     @thread_worker(connect={"returned": show_img})
     def get_results(self):
         self.set_att()
-        if self.sim.drift != 0.0:
-            t = self.sim.raw_image_stack_brownian()
-        else:
-            t = self.sim.raw_image_stack()
+        # if self.sim.drift != 0.0:
+        t = self.sim.raw_image_stack_brownian()
+        # else:
+        #     t = self.sim.raw_image_stack()
         try:
             while True:
                 self.messageBox.value = next(t)
@@ -216,8 +226,8 @@ class SIMulator(QWidget):
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
         w1_a = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N, self.pixel_size,
-                              self.magnification, self.NA, self.n])
-        w1_b = Container(widgets=[self.wavelength, self.n_points, self.zrange, self.dz, self.fwhmz, self.random_seed,
+                              self.magnification, self.NA, self.n, self.wavelength])
+        w1_b = Container(widgets=[self.n_points, self.zrange, self.tpoints, self.xdrift, self.zdrift, self.fwhmz, self.random_seed,
                                   self.drift, self.defocus, self.sph_abb])
         w1 = Container(widgets=[w1_a, w1_b], layout="horizontal")
         w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)

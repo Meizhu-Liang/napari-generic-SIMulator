@@ -26,23 +26,23 @@ class HexSim_simulator(Base_simulator):
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
     def _illCi(self):
         # Circular polarisation
-        _illCi = 1 + 1 / 6 * (np.cos(self.ph * (-np.sqrt(3) * self.x - self.y) / 2 + self.p2) \
-                      + np.cos(self.ph * (-np.sqrt(3) * self.x + self.y) / 2 + self.p1) \
-                      + np.cos(self.ph * self.y + self.p1 - self.p2))
+        _illCi = 1 + 1 / 6 * (np.cos(self.ph * (-np.sqrt(3) * self.y - self.x) / 2 + self.p2) \
+                      + np.cos(self.ph * (-np.sqrt(3) * self.y + self.x) / 2 + self.p1) \
+                      + np.cos(self.ph * self.x + self.p1 - self.p2))
         return [_illCi]
 
     def _illAx(self):
         # Axial polarisation
-        _illAx = 1 + 2 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) \
-                      + np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
-                      + np.cos(self.ph * (-self.y - np.sqrt(3) * self.x) / 2 + self.p2))
+        _illAx = 1 + 2 / 3 * (np.cos(self.ph * self.x + self.p1 - self.p2) \
+                      + np.cos(self.ph * (self.x - np.sqrt(3) * self.y) / 2 + self.p1) \
+                      + np.cos(self.ph * (-self.x - np.sqrt(3) * self.y) / 2 + self.p2))
         return [_illAx]
 
     def _illIp(self):
         # In-plane polarisation
-        _illIp = 1 - 1 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) \
-                      + np.cos(self.ph * (self.y - np.sqrt(3) * self.x) / 2 + self.p1) \
-                      + np.cos(self.ph * (self.y + np.sqrt(3) * self.x) / 2 + self.p2))
+        _illIp = 1 - 1 / 3 * (np.cos(self.ph * self.x + self.p1 - self.p2) \
+                      + np.cos(self.ph * (self.x - np.sqrt(3) * self.y) / 2 + self.p1) \
+                      + np.cos(self.ph * (self.x + np.sqrt(3) * self.y) / 2 + self.p2))
         return [_illIp]
 
 class RightHexSim_simulator(Base_simulator):
@@ -58,20 +58,20 @@ class RightHexSim_simulator(Base_simulator):
 
     def _illCi(self):
         # Circular polarisation
-        _illCi = 1 + 1 / 3 * (np.cos(self.ph * (-self.x + self.y) + self.p1) +
-                                   np.cos(self.ph * (self.x + self.y) + self.p1 - self.p2))
+        _illCi = 1 + 1 / 3 * (np.cos(self.ph * (-self.y + self.x) + self.p1) +
+                                   np.cos(self.ph * (self.y + self.x) + self.p1 - self.p2))
         return [_illCi]
 
     def _illAx(self):
         # Axial polarisation with theta being π/2
-        _illAx = 1 + 2 / 3 * (np.cos(self.ph * self.y + self.p1 - self.p2) +
-                                   np.cos(self.ph * (self.x + self.y) / 2 + self.p1) +
-                                   np.cos(self.ph * (-self.x + self.y) / 2 + self.p2))
+        _illAx = 1 + 2 / 3 * (np.cos(self.ph * self.x + self.p1 - self.p2) +
+                                   np.cos(self.ph * (self.y + self.x) / 2 + self.p1) +
+                                   np.cos(self.ph * (-self.y + self.x) / 2 + self.p2))
         return [_illAx]
 
     def _illIp(self):
         # In-plane polarisation
-        _illIp = 1 - 2 / 3 * np.cos(self.ph * (-self.x) + self.p2)
+        _illIp = 1 - 2 / 3 * np.cos(self.ph * (-self.y) + self.p2)
         return [_illIp]
 
 
