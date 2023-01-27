@@ -119,7 +119,7 @@ class Base_simulator:
 
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
-        lastProg = -1
+        lastProg = 0
         self.ph = self._eta * 4 * np.pi * self.NA / self.wavelength
         for pstep in range(self._phaseStep):
             for astep in range(self._angleStep):
@@ -129,7 +129,7 @@ class Base_simulator:
                 isteps = pstep + self._angleStep * astep  # index of the steps
                 for i in range(self.npoints):
                     prog = (100 * itcount) // total_its
-                    if prog > lastProg:
+                    if prog > lastProg + 9:
                         lastProg = prog
                         yield f'Phase tilts calculation: {prog:.1f}% done'
                     itcount += 1
@@ -162,7 +162,7 @@ class Base_simulator:
                         py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
                         pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill[astep]),
                                              device=self._tdev)
-                        self.phasetilts[isteps, :, :, :] += (py[..., None] * px) * pz[..., None, None]
+                        self.phasetilts[isteps, :, :, :] += (px * py[..., None]) * pz[..., None, None]
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
