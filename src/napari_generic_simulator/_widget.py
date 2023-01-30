@@ -8,7 +8,8 @@ from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp, import_torch, torch_GPU
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from napari_generic_simulator.conSIMulator import ConSim_simulator
-from qtpy.QtWidgets import QWidget, QVBoxLayout
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QDoubleSpinBox, QFormLayout, QLabel
+from qtpy.QtCore import Qt
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
 
@@ -48,6 +49,10 @@ class SIMulator(QWidget):
         self._viewer = viewer
         super().__init__()
         self.parameters()
+        # self.wavelength = QDoubleSpinBox()
+        # self.wavelength.setValue(0.488)
+        # self.wavelength.setMinimum(0.000)
+        # self.wavelength.setDecimals(3)
         self.setup_ui()
         self.start_simulator()
 
@@ -55,8 +60,20 @@ class SIMulator(QWidget):
         """Sets up the layout and adds the widget to the ui"""
         self.wrap_widgets()
         layout = QVBoxLayout()
+
+        # settingLayout = QFormLayout()
+        # settingLayout.setFormAlignment(Qt.AlignLeft)
+        # lab = QLabel('wavelength(μm)')
+        # lab.setWordWrap(False)
+        # settingLayout.addRow(lab, self.wavelength)
+        # layout.addLayout(settingLayout)
+
         self.setLayout(layout)
         self.add_magic_function(self.w, layout)
+
+
+
+
 
     def add_magic_function(self, function, _layout):
         """Adds the widget to the viewer"""
@@ -75,7 +92,7 @@ class SIMulator(QWidget):
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
         self.NA = FloatSpinBox(value=1.1, name='spin', label='NA', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
-        self.wavelength = FloatSpinBox(value=0.52, name='spin', label='wavelength(μm)', min=0.00)
+        self.wavelength = LineEdit(value=f"{0.488:.3f}", label='λ  illumination(μm)')
         self.n_points = SpinBox(value=500, name='spin', label='N points', max=10000, step=10)
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
         self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
@@ -92,7 +109,7 @@ class SIMulator(QWidget):
         """return the current parameter list"""
         return [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.N.value,
                          self.pixel_size.value, self.magnification.value, self.NA.value, self.n.value,
-                         self.wavelength.value, self.n_points.value, self.zrange.value, self.tpoints.value,
+                         float(self.wavelength.value), self.n_points.value, self.zrange.value, self.tpoints.value,
                          self.xdrift.value, self.zdrift.value,
                          self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
                          self.sph_abb.value]
@@ -106,6 +123,7 @@ class SIMulator(QWidget):
             nsteps = 5
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             self.sim = ConSim_simulator()
+            nsteps = 9
 
         if self.Polarisation.value == Pol.IN_PLANE:
             self.sim.pol = 'in-plane'
@@ -137,7 +155,7 @@ class SIMulator(QWidget):
         self.sim.magnification = self.magnification.value
         self.sim.NA = self.NA.value
         self.sim.n = self.n.value
-        self.sim.wavelength = self.wavelength.value
+        self.sim.wavelength = float(self.wavelength.value)
         self.sim.npoints = self.n_points.value
         self.sim.zrange = self.zrange.value
         self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
@@ -152,7 +170,7 @@ class SIMulator(QWidget):
         self.sim.sph_abb = self.sph_abb.value
         self.used_par_list = [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.N.value,
                               self.pixel_size.value, self.magnification.value, self.NA.value, self.n.value,
-                              self.wavelength.value, self.n_points.value, self.zrange.value, self.tpoints.value,
+                              float(self.wavelength.value), self.n_points.value, self.zrange.value, self.tpoints.value,
                               self.xdrift.value, self.zdrift.value,
                               self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
                               self.sph_abb.value]
