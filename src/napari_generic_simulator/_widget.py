@@ -8,8 +8,7 @@ from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp, import_torch, torch_GPU
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from napari_generic_simulator.conSIMulator import ConSim_simulator
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QDoubleSpinBox, QFormLayout, QLabel
-from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QWidget, QVBoxLayout
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
 
@@ -49,10 +48,6 @@ class SIMulator(QWidget):
         self._viewer = viewer
         super().__init__()
         self.parameters()
-        # self.wavelength = QDoubleSpinBox()
-        # self.wavelength.setValue(0.488)
-        # self.wavelength.setMinimum(0.000)
-        # self.wavelength.setDecimals(3)
         self.setup_ui()
         self.start_simulator()
 
@@ -60,20 +55,8 @@ class SIMulator(QWidget):
         """Sets up the layout and adds the widget to the ui"""
         self.wrap_widgets()
         layout = QVBoxLayout()
-
-        # settingLayout = QFormLayout()
-        # settingLayout.setFormAlignment(Qt.AlignLeft)
-        # lab = QLabel('wavelength(μm)')
-        # lab.setWordWrap(False)
-        # settingLayout.addRow(lab, self.wavelength)
-        # layout.addLayout(settingLayout)
-
         self.setLayout(layout)
         self.add_magic_function(self.w, layout)
-
-
-
-
 
     def add_magic_function(self, function, _layout):
         """Adds the widget to the viewer"""
