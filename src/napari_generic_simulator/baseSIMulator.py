@@ -34,20 +34,21 @@ class Base_simulator:
     acc = None  # acceleration
     psf_calc = None
     _tdev = None
-    N = 512  # Points to use in FFT
-    pixel_size = 5.5  # Camera pixel size
-    magnification = 60  # Objective magnification
-    NA = 1.1  # Numerical aperture at sample
-    n = 1.33  # Refractive index at sample
-    wavelength = 0.52  # Wavelength in um
-    npoints = 500  # Number of random points
+    N = 512  # points to use in FFT
+    pixel_size = 5.5  # camera pixel size
+    magnification = 60  # objective magnification
+    ill_NA = 0.75  # numerical aperture at illumination beams
+    det_NA = 1.1  # numerical aperture at sample
+    n = 1.33  # refractive index at sample
+    ill_wavelength = 0.52  # illumination wavelength in um
+    det_wavelength = 0.57  # detection wavelength in um
+    npoints = 500  # number of random points
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
     drift = 0
     defocus = 0  # de-focus aberration in um
-    # add_sph = None  # adding primary spherical aberration
     spherical = 0
     sph_abb = 0
 
@@ -58,24 +59,24 @@ class Base_simulator:
         # self.seed(1234)  # set random number generator seed
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
-        self.dxn = self.wavelength / (4 * self.NA)  # 2 * Nyquist frequency in x and y.
+        self.dxn = self.det_wavelength / (4 * self.det_NA)  # 2 * Nyquist frequency in x and y.
         self.Nn = int(np.ceil(self.N * self.dx / self.dxn / 2) * 2)  # Number of points at Nyquist sampling, even number
         self.dxn = self.N * self.dx / self.Nn  # correct spacing
-        self.res = self.wavelength / (2 * self.NA)
+        self.res = self.det_wavelength / (2 * self.det_NA)
         oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
         self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
-        self.k0 = 2 * np.pi * self.n / self.wavelength
+        self.k0 = 2 * np.pi * self.n / self.det_wavelength
         self.kx, self.ky = self.xp.meshgrid(self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
                                        self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
-        self.krmax = self.NA * self.k0 / self.n
+        self.krmax = self.det_NA * self.k0 / self.n
         self.kr2 = self.kx ** 2 + self.ky ** 2
         self.spherical = self.sph_abb * np.sqrt(5) * (6 * (self.kr ** 4 - self.kr ** 2) + 1)
         self.csum = sum(sum((self.kr < 1)))  # normalise by csum so peak intensity is 1
 
-        self.alpha = np.arcsin(self.NA / self.n)
+        self.alpha = np.arcsin(self.det_NA / self.n)
         # Nyquist sampling in z, reduce by 10 % to account for gaussian light sheet
-        self.dzn = 0.8 * self.wavelength / (2 * self.n * (1 - np.cos(self.alpha)))
+        self.dzn = 0.8 * self.det_wavelength / (2 * self.n * (1 - np.cos(self.alpha)))
         self.Nz = int(2 * np.ceil(self.zrange / self.dz))
         self.dz = 2 * self.zrange / self.Nz
         self.Nzn = int(2 * np.ceil(self.zrange / self.dzn))
@@ -120,7 +121,7 @@ class Base_simulator:
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
-        self.ph = self._eta * 4 * np.pi * self.NA / self.wavelength
+        self.ph = 4 * np.pi * self.ill_NA / self.ill_wavelength
         for pstep in range(self._phaseStep):
             for astep in range(self._angleStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
@@ -137,7 +138,6 @@ class Base_simulator:
                     self.y = self.points[i, 1]
                     # z = self.points[i, 2] + self.dz / self._nsteps * isteps
                     z = self.points[i, 2]
-                    self.ph = self._eta * 4 * np.pi * self.NA / self.wavelength
                     self.p1 = pstep * 2 * np.pi / self._phaseStep
                     self.p2 = -pstep * 4 * np.pi / self._phaseStep
                     if self.pol == 'axial':
@@ -273,7 +273,7 @@ class Base_simulator:
         kx = self.krmax * self.kx
         ky = self.krmax * self.ky
         kr2 = (kx ** 2 + ky ** 2)  # square kr
-        2 * np.pi * self.n / self.wavelength
+        # 2 * np.pi * self.n / self.wavelength
         kz = self.xp.sqrt((self.k0 ** 2 - kr2) + 0j)
         nz = 0
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
@@ -282,8 +282,8 @@ class Base_simulator:
             # c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
             # psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             c = (np.exp(
-                1j * (z * self.n * 2 * np.pi / self.wavelength *
-                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.NA ** 2 / self.n ** 2)))) * pupil
+                1j * (z * self.n * 2 * np.pi / self.det_wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2)))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane

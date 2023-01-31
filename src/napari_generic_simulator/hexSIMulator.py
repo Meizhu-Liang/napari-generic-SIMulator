@@ -11,17 +11,12 @@ class HexSim_simulator(Base_simulator):
     '''
     Implements hexagonal SIM illumination with three beams, seven phase steps, with beams being at 2π/3 angles.
 
-    eta is the factor by which the illumination grid frequency exceeds the incoherent cutoff, eta = 1 for normal
-    SIM, eta=sqrt(3) / 2 to maximise resolution without zeros in TF.
-    For a normal SIM, maximum resolution extension = 1 + eta
-    carrier is 2 * kmax * eta
     '''
 
     def __init__(self):
         self._phaseStep = 7
         self._angleStep = 1
         super().__init__()
-        self._eta = self.n * np.sqrt(3.0) / 2 / self.NA
 
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
     def _illCi(self):
@@ -54,7 +49,6 @@ class RightHexSim_simulator(Base_simulator):
         self._phaseStep = 7
         self._angleStep = 1
         super().__init__()
-        self._eta = self.n * np.sqrt(3.0) / 2 / self.NA
 
     def _illCi(self):
         # Circular polarisation

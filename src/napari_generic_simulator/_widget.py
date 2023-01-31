@@ -73,9 +73,11 @@ class SIMulator(QWidget):
         self.N = SpinBox(value=128, name='spin', label='N pixel')
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
-        self.NA = FloatSpinBox(value=1.1, name='spin', label='NA', min=0.0, step=0.1)
+        self.ill_NA = FloatSpinBox(value=1.33, name='spin', label='NA  illumination', min=0.0, step=0.1)
+        self.det_NA = FloatSpinBox(value=1.1, name='spin', label='NA  detection', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
-        self.wavelength = LineEdit(value=f"{0.488:.3f}", label='λ  illumination(μm)')
+        self.ill_wavelength = FloatSpinBox(value=0.570, label='λ  illumination(μm)', step=0.005)
+        self.det_wavelength = FloatSpinBox(value=0.600, label='λ  detection(μm)', step=0.005)
         self.n_points = SpinBox(value=500, name='spin', label='N points', max=10000, step=10)
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
         self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
@@ -84,18 +86,17 @@ class SIMulator(QWidget):
         self.fwhmz = FloatSpinBox(value=3.0, name='spin', label='fwhmz(μm)', min=0.0, max=10.0)
         self.random_seed = SpinBox(value=123, name='spin', label='random seed')
         self.drift = FloatSpinBox(value=0.0, name='spin', label='drift(nm)', min=0.0, max=1000.0, step=5)
-        self.defocus = FloatSpinBox(value=0.0, name='spin', label='de-focus(μm)', min=-10.0, max=10, step=0.5)
+        self.defocus = FloatSpinBox(value=0.0, name='spin', label='de-focus(μm)', min=-10.0, max=10, step=5)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
         self.lable = Label(value='aberration')
 
     def par_list(self):
         """return the current parameter list"""
         return [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.N.value,
-                         self.pixel_size.value, self.magnification.value, self.NA.value, self.n.value,
-                         float(self.wavelength.value), self.n_points.value, self.zrange.value, self.tpoints.value,
-                         self.xdrift.value, self.zdrift.value,
-                         self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
-                         self.sph_abb.value]
+                self.pixel_size.value, self.magnification.value, self.ill_NA.value, self.det_NA.value,
+                self.n.value, self.ill_wavelength.value, self.det_wavelength.value, self.n_points.value,
+                self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value, self.fwhmz.value,
+                self.random_seed.value, self.drift.value, self.defocus.value, self.sph_abb.value]
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
         if self.SIM_mode.value == Sim_mode.HEXSIM:
@@ -136,9 +137,11 @@ class SIMulator(QWidget):
         self.sim.N = self.N.value
         self.sim.pixel_size = self.pixel_size.value
         self.sim.magnification = self.magnification.value
-        self.sim.NA = self.NA.value
+        self.sim.ill_NA = self.ill_NA.value
+        self.sim.det_NA = self.det_NA.value
         self.sim.n = self.n.value
-        self.sim.wavelength = float(self.wavelength.value)
+        self.sim.ill_wavelength = self.ill_wavelength.value
+        self.sim.det_wavelength = self.det_wavelength.value
         self.sim.npoints = self.n_points.value
         self.sim.zrange = self.zrange.value
         self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
@@ -152,9 +155,9 @@ class SIMulator(QWidget):
         self.sim.defocus = self.defocus.value
         self.sim.sph_abb = self.sph_abb.value
         self.used_par_list = [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.N.value,
-                              self.pixel_size.value, self.magnification.value, self.NA.value, self.n.value,
-                              float(self.wavelength.value), self.n_points.value, self.zrange.value, self.tpoints.value,
-                              self.xdrift.value, self.zdrift.value,
+                              self.pixel_size.value, self.magnification.value, self.ill_NA.value, self.det_NA.value,
+                              self.n.value, self.ill_wavelength.value, self.det_wavelength.value, self.n_points.value,
+                              self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
                               self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
                               self.sph_abb.value]
 
@@ -226,10 +229,11 @@ class SIMulator(QWidget):
 
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
-        w1_a = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N, self.pixel_size,
-                              self.magnification, self.NA, self.n, self.wavelength])
-        w1_b = Container(widgets=[self.n_points, self.zrange, self.tpoints, self.xdrift, self.zdrift, self.fwhmz, self.random_seed,
-                                  self.drift, self.defocus, self.sph_abb])
+        w1_a = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
+                                  self.pixel_size, self.ill_NA, self.det_NA, self.n,
+                                  self.ill_wavelength, self.det_wavelength])
+        w1_b = Container(widgets=[self.magnification, self.n_points, self.zrange, self.tpoints, self.xdrift,
+                                  self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus, self.sph_abb])
         w1 = Container(widgets=[w1_a, w1_b], layout="horizontal")
         w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
         w3 = magicgui(self.show_raw_img_sum, auto_call=True)
