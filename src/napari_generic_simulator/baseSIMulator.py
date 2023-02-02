@@ -40,8 +40,8 @@ class Base_simulator:
     ill_NA = 0.75  # numerical aperture at illumination beams
     det_NA = 1.1  # numerical aperture at sample
     n = 1.33  # refractive index at sample
-    ill_wavelength = 0.52  # illumination wavelength in um
-    det_wavelength = 0.57  # detection wavelength in um
+    ill_wavelength = 520  # illumination wavelength in nm
+    det_wavelength = 570  # detection wavelength in nm
     npoints = 500  # number of random points
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
@@ -57,6 +57,8 @@ class Base_simulator:
             self.xp = cp
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
+        self.ill_wavelength = self.ill_wavelength * 1e-3
+        self.det_wavelength = self.det_wavelength * 1e-3
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
         self.dxn = self.det_wavelength / (4 * self.det_NA)  # 2 * Nyquist frequency in x and y.
