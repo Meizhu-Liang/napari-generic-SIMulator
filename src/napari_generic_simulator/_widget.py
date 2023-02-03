@@ -8,7 +8,7 @@ from enum import Enum
 from napari_generic_simulator.baseSIMulator import import_cp, import_torch, torch_GPU
 from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from napari_generic_simulator.conSIMulator import ConSim_simulator
-from qtpy.QtWidgets import QWidget, QVBoxLayout
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButton
 import tifffile, time
@@ -199,10 +199,12 @@ class SIMulator(QWidget):
 
         if self.save_and_print_tags:
             if hasattr(self.sim, 'img'):
-                time_stamp = time.strftime("%d%m%y_%H%M%S", time.localtime())
-                tifffile.imwrite(time_stamp + '.tif', self._viewer.layers[self._viewer.layers.selection.active.name].data,
+                options = QFileDialog.Options()
+                filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options)
+                # time_stamp = time.strftime("%d%m%y_%H%M%S", time.localtime())
+                tifffile.imwrite(filename[0], self._viewer.layers[self._viewer.layers.selection.active.name].data,
                                  description=str(self._viewer.layers[self._viewer.layers.selection.active.name].metadata))
-                frames = tifffile.TiffFile(time_stamp + '.tif')
+                frames = tifffile.TiffFile(filename[0])
                 page = frames.pages[0]
                 # Print file description
                 print(f'==={self._viewer.layers.selection.active.name}===\n' + page.tags["ImageDescription"].value)
