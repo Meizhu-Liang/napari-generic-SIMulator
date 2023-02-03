@@ -10,8 +10,8 @@ from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_
 from napari_generic_simulator.conSIMulator import ConSim_simulator
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
-from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButton
-import tifffile, time
+from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
+import tifffile
 
 
 class Sim_mode(Enum):
@@ -54,7 +54,6 @@ class SIMulator(QWidget):
         self._viewer = viewer
         super().__init__()
         self.parameters()
-        self.save_and_print_tags = RadioButton(value=True, label='Save and print tiff tags')
         self.setup_ui()
         self.start_simulator()
 
@@ -189,26 +188,14 @@ class SIMulator(QWidget):
                                          'N': self.N.value, 'pix size': self.pixel_size.value,
                                          'mag': self.magnification.value, 'ill NA': self.ill_NA.value,
                                          'det NA': self.det_NA.value, 'n': self.n.value,
-                                         'ill_wavelength': self.ill_wavelength.value, 'det_wavelength': self.det_wavelength.value,
+                                         'ill_wavelength': self.ill_wavelength.value,
+                                         'det_wavelength': self.det_wavelength.value,
                                          'n points': self.n_points.value, 'z range': self.zrange.value,
                                          'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
                                          'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
                                          'random seed': self.random_seed.value, 'Brownian': self.drift.value,
                                          'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
                                          })
-
-        if self.save_and_print_tags:
-            if hasattr(self.sim, 'img'):
-                options = QFileDialog.Options()
-                filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options)
-                # time_stamp = time.strftime("%d%m%y_%H%M%S", time.localtime())
-                tifffile.imwrite(filename[0], self._viewer.layers[self._viewer.layers.selection.active.name].data,
-                                 description=str(self._viewer.layers[self._viewer.layers.selection.active.name].metadata))
-                frames = tifffile.TiffFile(filename[0])
-                page = frames.pages[0]
-                # Print file description
-                print(f'==={self._viewer.layers.selection.active.name}===\n' + page.tags["ImageDescription"].value)
-                self.messageBox.value = 'Parameters printed'
 
     @thread_worker(connect={"returned": show_img})
     def get_results(self):
@@ -236,8 +223,8 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
-    def show_psf(self, show_3D_psf: bool = False):
-        if show_3D_psf:
+    def show_psf(self, show_3D_psf_slice: bool = False):
+        if show_3D_psf_slice:
             if hasattr(self.sim, 'psf_z0'):
                 if self.used_par_list != self.par_list():
                     self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
@@ -247,8 +234,8 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(e)
 
-    def show_otf(self, show_3D_otf: bool = False):
-        if show_3D_otf:
+    def show_otf(self, show_3D_otf_slice: bool = False):
+        if show_3D_otf_slice:
             if hasattr(self.sim, 'aotf_x'):
                 if self.used_par_list != self.par_list():
                     self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
@@ -258,32 +245,44 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
-    def print_tiff_tags(self, print_tiff_tags: bool = False):
-        if print_tiff_tags:
+    def save_tiff_with_tags(self):
+        if hasattr(self.sim, 'img'):
             try:
-                frames = tifffile.TiffFile(self._viewer.layers.selection.active.name + '.tif')
-                page = frames.pages[0]
-                # Print file description
-                print(f'==={self._viewer.layers.selection.active.name}.tif===\n' + page.tags["ImageDescription"].value)
-                self.messageBox.value = 'Parameters printed'
+                options = QFileDialog.Options()
+                filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options, filter="Images (*.tif)")
+                tifffile.imwrite(filename[0], self._viewer.layers[self._viewer.layers.selection.active.name].data,
+                                 description=str(self._viewer.layers[self._viewer.layers.selection.active.name].metadata))
             except Exception as e:
                 print(str(e))
 
+    def print_tiff_tags(self):
+        try:
+            frames = tifffile.TiffFile(self._viewer.layers.selection.active.name + '.tif')
+            page = frames.pages[0]
+            # Print file description
+            print(f'==={self._viewer.layers.selection.active.name}.tif===\n' + page.tags["ImageDescription"].value)
+            self.messageBox.value = 'Parameters printed'
+        except Exception as e:
+            print(str(e))
+
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
-        w1_a = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
-                                  self.pixel_size, self.ill_NA, self.det_NA, self.n,
-                                  self.ill_wavelength, self.det_wavelength])
-        w1_b = Container(widgets=[self.magnification, self.n_points, self.zrange, self.tpoints, self.xdrift,
-                                  self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus, self.sph_abb])
-        w1 = Container(widgets=[w1_a, w1_b], layout="horizontal")
-        w2 = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
-        w3 = magicgui(self.show_raw_img_sum, auto_call=True)
-        w4 = magicgui(self.show_psf, auto_call=True)
-        w5 = magicgui(self.show_otf, auto_call=True)
-        w6 = magicgui(self.print_tiff_tags, auto_call=True)
+        w_parameters = Container(
+            widgets=[Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
+                                        self.pixel_size, self.ill_NA, self.det_NA, self.n,
+                                        self.ill_wavelength, self.det_wavelength]),
+                     Container(widgets=[self.magnification, self.n_points, self.zrange, self.tpoints, self.xdrift,
+                                        self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
+                                        self.sph_abb])], layout="horizontal")
+        w_cal = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
+        w_save_and_print = Container(widgets=[magicgui(self.save_tiff_with_tags, call_button='save_tiff_with_tags'),
+                                              magicgui(self.print_tiff_tags, call_button='print_tags')],
+                                     layout="horizontal", labels=None)
+        w_sum = magicgui(self.show_raw_img_sum, auto_call=True)
+        w_psf = magicgui(self.show_psf, auto_call=True)
+        w_otf = magicgui(self.show_otf, auto_call=True)
         self.messageBox = LineEdit(value="Messages")
-        self.w = Container(widgets=[w1, self.save_and_print_tags, w2, w3, w4, w5, w6, self.messageBox], labels=None)
+        self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox], labels=None)
 
 
 if __name__ == '__main__':
