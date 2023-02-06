@@ -111,7 +111,6 @@ class Base_simulator:
         dkz = np.pi / self.zrange
         self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
         self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
-
         if (self.acc == 0) | (self.acc == 3):
             self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
         else:
@@ -119,13 +118,12 @@ class Base_simulator:
                                           device=self._tdev)
 
         start_time = time.time()
-
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
         self.ph = 4 * np.pi * self.ill_NA / self.ill_wavelength
-        for pstep in range(self._phaseStep):
-            for astep in range(self._angleStep):
+        for astep in range(self._angleStep):
+            for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
                 self.points[:, 0] += self.xdrift / 1000
                 self.points[:, 2] += self.zdrift / 1000
@@ -138,31 +136,28 @@ class Base_simulator:
                     itcount += 1
                     self.x = self.points[i, 0]
                     self.y = self.points[i, 1]
-                    # z = self.points[i, 2] + self.dz / self._nsteps * isteps
                     z = self.points[i, 2]
-                    self.p1 = pstep * 2 * np.pi / self._phaseStep
-                    self.p2 = -pstep * 4 * np.pi / self._phaseStep
+                    # get illumination from the child class
                     if self.pol == 'axial':
-                        # get illumination from the child class
-                        ill = self._illAx()
+                        ill = self._illAx(pstep, astep)
                     elif self.pol == 'circular':
-                        ill = self._illCi()
+                        ill = self._illCi(pstep, astep)
                     else:
-                        ill = self._illIp()
+                        ill = self._illIp(pstep, astep)
                     if self.acc == 0:
                         px = np.exp(1j * np.single(self.x * self.kxy))
                         py = np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis]
-                        pz = (np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis]
+                        pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     elif self.acc == 3:
                         px = cp.array(np.exp(1j * np.single(self.x * self.kxy)))
                         py = cp.array(np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis])
-                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill[astep])[:, np.newaxis, np.newaxis])
+                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     else:
                         px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
                         py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
-                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill[astep]),
+                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
                                              device=self._tdev)
                         self.phasetilts[isteps, :, :, :] += (px * py[..., None]) * pz[..., None, None]
         self.elapsed_time = time.time() - start_time

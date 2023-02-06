@@ -20,27 +20,44 @@ class ConSim_simulator(Base_simulator):
     def __init__(self):
         self._phaseStep = 3
         self._angleStep = 3
+        # xc, yc - Cartesian coordinate system
+        self.xc = -1
+        self.yc = 0
         super().__init__()
 
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
 
     def _illCi(self):
         # illumination with circular polarisation in 3 angles
-        _illCi_0 = 1
-        _illCi_1 = 1
-        _illCi_2 = 1
-        return _illCi_0, _illCi_1, _illCi_2
+        _illCi = 2
+        return _illCi
 
-    def _illAx(self):
+    def _illAx(self, pstep, astep):
         # illumination with axial polarisation in 3 angles
-        _illAx_0 = 1 + 1 / 3 * np.cos(self.ph * (-2 * self.x) + self.p1)
-        _illAx_1 = 1 + 1 / 3 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self.p1)
-        _illAx_2 = 1 + 1 / 3 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self.p1)
-        return _illAx_0, _illAx_1, _illAx_2
+        # phase
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        # angle
+        # xr, yr - Cartesian coordinate system with rotation of axes
+        xr = self.xc * np.cos(astep * 2 * np.pi / self._angleStep) + self.yc * np.sin(astep * 2 * np.pi / self._angleStep)
+        yr = -self.xc * np.sin(astep * 2 * np.pi / self._angleStep) + self.yc * np.cos(astep * 2 * np.pi / self._angleStep)
+        _illAx = 2 + 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1)
+        # _illAx_0 = 1 + 1 / 2 * np.cos(self.ph * (-2 * self.x) + self._p1)
+        # _illAx_1 = 1 + 1 / 2 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self._p1)
+        # _illAx_2 = 1 + 1 / 2 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self._p1)
+        return _illAx
 
-    def _illIp(self):
+    def _illIp(self, pstep, astep):
         # illumination with in-plane polarisation in 3 angles
-        _illIp_0 = 1 - 1 / 3 * np.cos(self.ph * (-2 * self.x) + self.p1)
-        _illIp_1 = 1 - 1 / 3 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self.p1)
-        _illIp_2 = 1 - 1 / 3 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self.p1)
-        return _illIp_0, _illIp_1, _illIp_2
+        # phase
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        # angle
+        # xr, yr - Cartesian coordinate system with rotation of axes
+        xr = self.xc * np.cos(astep * 2 * np.pi / self._angleStep) + self.yc * np.sin(
+            astep * 2 * np.pi / self._angleStep)
+        yr = -self.xc * np.sin(astep * 2 * np.pi / self._angleStep) + self.yc * np.cos(
+            astep * 2 * np.pi / self._angleStep)
+        _illIp = 2 - 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1)
+        # _illIp_0 = 1 - 1 / 2 * np.cos(self.ph * (-2 * self.x) + self._p1)
+        # _illIp_1 = 1 - 1 / 2 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self._p1)
+        # _illIp_2 = 1 - 1 / 2 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self._p1)
+        return _illIp

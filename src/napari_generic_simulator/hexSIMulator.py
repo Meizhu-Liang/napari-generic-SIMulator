@@ -19,26 +19,34 @@ class HexSim_simulator(Base_simulator):
         super().__init__()
 
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
-    def _illCi(self):
+
+    def _illCi(self, pstep, astep):
         # Circular polarisation
-        _illCi = 1 + 1 / 6 * (np.cos(self.ph * np.sqrt(3) / 2 * (-np.sqrt(3) * self.y - self.x) / 2 + self.p2) \
-                      + np.cos(self.ph * np.sqrt(3) / 2 * (-np.sqrt(3) * self.y + self.x) / 2 + self.p1) \
-                      + np.cos(self.ph * np.sqrt(3) / 2 * self.x + self.p1 - self.p2))
-        return [_illCi]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p2 = -pstep * 4 * np.pi / self._phaseStep
+        _illCi = 3 + 1 / 2 * (np.cos(self.ph * np.sqrt(3) / 2 * (-np.sqrt(3) * self.x - self.y) / 2 + self._p2)
+                              + np.cos(self.ph * np.sqrt(3) / 2 * (-np.sqrt(3) * self.x + self.y) / 2 + self._p1)
+                              + np.cos(self.ph * np.sqrt(3) / 2 * self.y + self._p1 - self._p2))
+        return _illCi
 
-    def _illAx(self):
+    def _illAx(self, pstep, astep):
         # Axial polarisation
-        _illAx = 1 + 2 / 3 * (np.cos(self.ph * np.sqrt(3) / 2 *  self.x + self.p1 - self.p2) \
-                      + np.cos(self.ph * np.sqrt(3) / 2 * (self.x - np.sqrt(3) * self.y) / 2 + self.p1) \
-                      + np.cos(self.ph * np.sqrt(3) / 2 * (-self.x - np.sqrt(3) * self.y) / 2 + self.p2))
-        return [_illAx]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p2 = -pstep * 4 * np.pi / self._phaseStep
+        _illAx = 3 + 2 * (np.cos(self.ph * np.sqrt(3) / 2 * self.y + self._p1 - self._p2)
+                              + np.cos(self.ph * np.sqrt(3) / 2 * (self.y - np.sqrt(3) * self.x) / 2 + self._p1)
+                              + np.cos(self.ph * np.sqrt(3) / 2 * (-self.y - np.sqrt(3) * self.x) / 2 + self._p2))
+        return _illAx
 
-    def _illIp(self):
+    def _illIp(self, pstep, astep):
         # In-plane polarisation
-        _illIp = 1 - 1 / 3 * (np.cos(self.ph * np.sqrt(3) / 2 * self.x + self.p1 - self.p2) \
-                      + np.cos(self.ph * np.sqrt(3) / 2 * (self.x - np.sqrt(3) * self.y) / 2 + self.p1) \
-                      + np.cos(self.ph * np.sqrt(3) / 2 * (self.x + np.sqrt(3) * self.y) / 2 + self.p2))
-        return [_illIp]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p2 = -pstep * 4 * np.pi / self._phaseStep
+        _illIp = 3 - (np.cos(self.ph * np.sqrt(3) / 2 * self.y + self._p1 - self._p2)
+                              + np.cos(self.ph * np.sqrt(3) / 2 * (self.y - np.sqrt(3) * self.x) / 2 + self._p1)
+                              + np.cos(self.ph * np.sqrt(3) / 2 * (self.y + np.sqrt(3) * self.x) / 2 + self._p2))
+        return _illIp
+
 
 class RightHexSim_simulator(Base_simulator):
     '''
@@ -50,23 +58,29 @@ class RightHexSim_simulator(Base_simulator):
         self._angleStep = 1
         super().__init__()
 
-    def _illCi(self):
+    def _illCi(self, pstep, astep):
         # Circular polarisation
-        _illCi = 1 + 1 / 3 * (np.cos(self.ph * (-self.y + self.x) + self.p1) +
-                                   np.cos(self.ph * (self.y + self.x) + self.p1 - self.p2))
-        return [_illCi]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p2 = -pstep * 4 * np.pi / self._phaseStep
+        _illCi = 3 + (np.cos(self.ph * np.sqrt(3) / 2 * (-self.x + self.y) + self._p1) +
+                              np.cos(self.ph * np.sqrt(3) / 2 * (self.x + self.y) + self._p1 - self._p2))
+        return _illCi
 
-    def _illAx(self):
+    def _illAx(self, pstep, astep):
         # Axial polarisation with theta being π/2
-        _illAx = 1 + 2 / 3 * (np.cos(self.ph * self.x + self.p1 - self.p2) +
-                                   np.cos(self.ph * (self.y + self.x) / 2 + self.p1) +
-                                   np.cos(self.ph * (-self.y + self.x) / 2 + self.p2))
-        return [_illAx]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p2 = -pstep * 4 * np.pi / self._phaseStep
+        _illAx = 3 + 2 * (np.cos(self.ph * np.sqrt(3) / 2 * 2 * (-self.x) + self._p2) +
+                              np.cos(self.ph * np.sqrt(3) / 2 * (-self.x + self.y) + self._p1) +
+                              np.cos(self.ph * np.sqrt(3) / 2 * (self.x + self.y) + self._p1 - self._p2))
+        return _illAx
 
-    def _illIp(self):
+    def _illIp(self, pstep, astep):
         # In-plane polarisation
-        _illIp = 1 - 2 / 3 * np.cos(self.ph * (-self.y) + self.p2)
-        return [_illIp]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p2 = -pstep * 4 * np.pi / self._phaseStep
+        _illIp = 3 - 2 * np.cos(self.ph * np.sqrt(3) / 2 * (-self.x) + self._p2)
+        return _illIp
 
 
 if __name__ == '__main__':
