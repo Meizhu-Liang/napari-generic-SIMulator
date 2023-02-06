@@ -127,7 +127,7 @@ class Base_simulator:
                 self.points += self.drift * np.random.standard_normal(3) / 1000
                 self.points[:, 0] += self.xdrift / 1000
                 self.points[:, 2] += self.zdrift / 1000
-                isteps = pstep + self._angleStep * astep  # index of the steps
+                isteps = pstep + self._phaseStep * astep  # index of the steps
                 for i in range(self.npoints):
                     prog = (100 * itcount) // total_its
                     if prog > lastProg + 9:
