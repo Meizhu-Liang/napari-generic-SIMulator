@@ -62,24 +62,24 @@ class RightHexSim_simulator(Base_simulator):
         # Circular polarisation
         self._p1 = pstep * 2 * np.pi / self._phaseStep
         self._p2 = -pstep * 4 * np.pi / self._phaseStep
-        _illCi = 3 + (np.cos(self.ph * np.sqrt(3) / 2 * (-self.x + self.y) + self._p1) +
-                              np.cos(self.ph * np.sqrt(3) / 2 * (self.x + self.y) + self._p1 - self._p2))
+        _illCi = 3 + (np.cos(self.ph * (-self.x + self.y) / 2 + self._p1) +
+                              np.cos(self.ph * (self.x + self.y) / 2 + self._p1 - self._p2))
         return _illCi
 
     def _illAx(self, pstep, astep):
         # Axial polarisation with theta being π/2
         self._p1 = pstep * 2 * np.pi / self._phaseStep
         self._p2 = -pstep * 4 * np.pi / self._phaseStep
-        _illAx = 3 + 2 * (np.cos(self.ph * np.sqrt(3) / 2 * 2 * (-self.x) + self._p2) +
-                              np.cos(self.ph * np.sqrt(3) / 2 * (-self.x + self.y) + self._p1) +
-                              np.cos(self.ph * np.sqrt(3) / 2 * (self.x + self.y) + self._p1 - self._p2))
+        _illAx = 3 + 2 * (np.cos(self.ph * (-self.x) + self._p2) +
+                              np.cos(self.ph * (-self.x + self.y) / 2 + self._p1) +
+                              np.cos(self.ph * (self.x + self.y) / 2 + self._p1 - self._p2))
         return _illAx
 
     def _illIp(self, pstep, astep):
         # In-plane polarisation
         self._p1 = pstep * 2 * np.pi / self._phaseStep
         self._p2 = -pstep * 4 * np.pi / self._phaseStep
-        _illIp = 3 - 2 * np.cos(self.ph * np.sqrt(3) / 2 * (-self.x) + self._p2)
+        _illIp = 3 - 2 * np.cos(self.ph * (-self.x) + self._p2)
         return _illIp
 
 
