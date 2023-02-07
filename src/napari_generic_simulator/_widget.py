@@ -108,13 +108,13 @@ class SIMulator(QWidget):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
         if self.SIM_mode.value == Sim_mode.HEXSIM:
             self.sim = HexSim_simulator()
-            nsteps = 7
+            nsteps = self.sim._phaseStep * self.sim._angleStep
         elif self.SIM_mode.value == Sim_mode.HEXSIM_RA:
             self.sim = RightHexSim_simulator()
-            nsteps = 7
+            nsteps = self.sim._phaseStep * self.sim._angleStep
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             self.sim = ConSim_simulator()
-            nsteps = 9
+            nsteps = self.sim._phaseStep * self.sim._angleStep
 
         if self.Polarisation.value == Pol.IN_PLANE:
             self.sim.pol = 'in-plane'
@@ -291,5 +291,4 @@ if __name__ == '__main__':
     viewer = napari.Viewer()
     test = SIMulator(viewer)
     viewer.window.add_dock_widget(test, name='my second app', add_vertical_stretch=True)
-
     napari.run()

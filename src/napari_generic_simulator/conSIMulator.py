@@ -19,7 +19,7 @@ class ConSim_simulator(Base_simulator):
 
     def __init__(self):
         self._phaseStep = 3
-        self._angleStep = 3
+        self._angleStep = 5
         # xc, yc - Cartesian coordinate system
         self.xc = -1
         self.yc = 0

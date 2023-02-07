@@ -165,16 +165,18 @@ class Base_simulator:
 
     def get_vector_psf(self):
         # use krmax to define the pupil function
-        kx = self.krmax * (self.kx + 1e-15)
-        ky = self.krmax * (self.ky + 1e-15)
+        # kx = self.krmax * (self.kx + 1e-15)
+        # ky = self.krmax * (self.ky + 1e-15)
+        kx = self.krmax * (self.kx)
+        ky = self.krmax * (self.ky)
         kr2 = (kx ** 2 + ky ** 2)  # square kr
         e_in = 1.0 * (kr2 < self.krmax ** 2)
+        e_in = e_in / e_in.sum() ** 2
         kz = np.sqrt((self.k0 ** 2 - kr2) + 0j)
 
         # Calculating psf
         nz = 0
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
-        pupil = self.kr < 1
 
         # calculate intensity of random arrangement of dipoles excited by a given polarisation s
         # p are the vertices of an dodecahedron
@@ -222,7 +224,7 @@ class Base_simulator:
                                   0.425325, 1.30902, -0.262866]), (20, 3))
         p2 = p2 / self.xp.linalg.norm(p2[0, :])
 
-        p = p1
+        p = p2
         s1 = self.xp.array([1, 0, 0])  # x polarised illumination orientation
         excitation1 = (s1 @ p.T) ** 2
         s2 = self.xp.array([0, 1, 0])  # y polarised illumination orientation
@@ -276,8 +278,6 @@ class Base_simulator:
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
-            # c = (self.xp.exp(1j * ((z + self.defocus) * kz + self.spherical))) * pupil
-            # psf[nz, :, :] = abs(self.xp.fft.fftshift(self.xp.fft.ifft2(c))) ** 2 * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             c = (np.exp(
                 1j * (z * self.n * 2 * np.pi / self.det_wavelength *
                       np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2)))) * pupil
