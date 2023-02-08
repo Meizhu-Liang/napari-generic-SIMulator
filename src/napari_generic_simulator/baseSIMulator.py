@@ -89,7 +89,8 @@ class Base_simulator:
         else:
             self.Nzn = self.Nz
             self.dzn = self.dz
-        self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
+        if (self.acc == 1) | (self.acc == 2):
+            self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
 
     def point_cloud(self):
         """

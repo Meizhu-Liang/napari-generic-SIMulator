@@ -3,7 +3,7 @@ A child class to simulate raw data of conventional Sim.
 """
 __author__ = "Meizhu Liang @Imperial College London"
 
-from napari_generic_simulator.baseSIMulator import Base_simulator
+from .baseSIMulator import Base_simulator
 import numpy as np
 
 
@@ -19,7 +19,7 @@ class ConSim_simulator(Base_simulator):
 
     def __init__(self):
         self._phaseStep = 3
-        self._angleStep = 5
+        self._angleStep = 3
         # xc, yc - Cartesian coordinate system
         self.xc = -1
         self.yc = 0
@@ -27,7 +27,7 @@ class ConSim_simulator(Base_simulator):
 
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
 
-    def _illCi(self):
+    def _illCi(self,pstep, astep):
         # illumination with circular polarisation in 3 angles
         _illCi = 2
         return _illCi

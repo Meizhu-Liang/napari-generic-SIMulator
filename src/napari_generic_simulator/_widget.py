@@ -5,9 +5,9 @@ __author__ = "Meizhu Liang @Imperial College London"
 
 from magicgui import magicgui
 from enum import Enum
-from napari_generic_simulator.baseSIMulator import import_cp, import_torch, torch_GPU
-from napari_generic_simulator.hexSIMulator import HexSim_simulator, RightHexSim_simulator
-from napari_generic_simulator.conSIMulator import ConSim_simulator
+from .baseSIMulator import import_cp, import_torch, torch_GPU
+from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
+from .conSIMulator import ConSim_simulator
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
@@ -72,18 +72,18 @@ class SIMulator(QWidget):
 
     def parameters(self):
         self.npoints = SpinBox(value=10, name='spin', label='Value:', min=-100, max=10000)
-        self.SIM_mode = ComboBox(value=Sim_mode.HEXSIM, label='SIM_mode', choices=Sim_mode)
+        self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
-        self.Psf = ComboBox(value=Psf_calc.VECTOR, label='Psf calculation', choices=Psf_calc)
+        self.Psf = ComboBox(value=Psf_calc.SCALAR, label='Psf calculation', choices=Psf_calc)
         self.N = SpinBox(value=128, name='spin', label='N pixel')
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
-        self.ill_NA = FloatSpinBox(value=1.1, name='spin', label='NA  illumination', min=0.0, step=0.1)
-        self.det_NA = FloatSpinBox(value=1.1, name='spin', label='NA  detection', min=0.0, step=0.1)
+        self.ill_NA = FloatSpinBox(value=1.0, name='spin', label='NA  illumination', min=0.0, step=0.1)
+        self.det_NA = FloatSpinBox(value=1.0, name='spin', label='NA  detection', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
-        self.ill_wavelength = SpinBox(value=570, label='λ  illumination(nm)', step=50)
-        self.det_wavelength = SpinBox(value=600, label='λ  detection(nm)', step=50)
+        self.ill_wavelength = SpinBox(value=500, label='λ  illumination(nm)', step=50)
+        self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=50)
         self.n_points = SpinBox(value=500, name='spin', label='N points', max=10000, step=10)
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
         self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
@@ -181,35 +181,38 @@ class SIMulator(QWidget):
         if hasattr(self, 'sim'):
             delattr(self, 'sim')
 
-    def show_img(self):
-        self._viewer.add_image(data=self.sim.img, name='raw image stack',
-                               metadata={'mode': str(self.SIM_mode.value), 'pol': str(self.Polarisation.value),
-                                         'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
-                                         'N': self.N.value, 'pix size': self.pixel_size.value,
-                                         'mag': self.magnification.value, 'ill NA': self.ill_NA.value,
-                                         'det NA': self.det_NA.value, 'n': self.n.value,
-                                         'ill_wavelength': self.ill_wavelength.value,
-                                         'det_wavelength': self.det_wavelength.value,
-                                         'n points': self.n_points.value, 'z range': self.zrange.value,
-                                         'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
-                                         'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
-                                         'random seed': self.random_seed.value, 'Brownian': self.drift.value,
-                                         'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
-                                         })
-
-    @thread_worker(connect={"returned": show_img})
     def get_results(self):
-        self.set_att()
-        # if self.sim.drift != 0.0:
-        t = self.sim.raw_image_stack_brownian()
-        # else:
-        #     t = self.sim.raw_image_stack()
-        try:
-            while True:
-                self.messageBox.value = next(t)
-        except Exception as e:
-            print(e)
-        return self
+        def show_img(data):
+            self._viewer.add_image(data, name='raw image stack',
+                                metadata={'mode': str(self.SIM_mode.value), 'pol': str(self.Polarisation.value),
+                                            'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
+                                            'N': self.N.value, 'pix size': self.pixel_size.value,
+                                            'mag': self.magnification.value, 'ill NA': self.ill_NA.value,
+                                            'det NA': self.det_NA.value, 'n': self.n.value,
+                                            'ill_wavelength': self.ill_wavelength.value,
+                                            'det_wavelength': self.det_wavelength.value,
+                                            'n points': self.n_points.value, 'z range': self.zrange.value,
+                                            'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
+                                            'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
+                                            'random seed': self.random_seed.value, 'Brownian': self.drift.value,
+                                            'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
+                                            })
+
+        @thread_worker(connect={"returned": show_img})
+        def _get_results():
+            self.set_att()
+            # if self.sim.drift != 0.0:
+            t = self.sim.raw_image_stack_brownian()
+            # else:
+            #     t = self.sim.raw_image_stack()
+            try:
+                while True:
+                    self.messageBox.value = next(t)
+            except Exception as e:
+                print(e)
+            return self.sim.img
+        
+        _get_results()
 
     def show_raw_img_sum(self, show_raw_img_sum: bool = False):
         if show_raw_img_sum:
@@ -283,12 +286,3 @@ class SIMulator(QWidget):
         w_otf = magicgui(self.show_otf, auto_call=True)
         self.messageBox = LineEdit(value="Messages")
         self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox], labels=None)
-
-
-if __name__ == '__main__':
-    import napari
-
-    viewer = napari.Viewer()
-    test = SIMulator(viewer)
-    viewer.window.add_dock_widget(test, name='my second app', add_vertical_stretch=True)
-    napari.run()

@@ -3,7 +3,7 @@ Two child classes to simulate raw data of HexSim.
 """
 __author__ = "Meizhu Liang @Imperial College London"
 
-from napari_generic_simulator.baseSIMulator import Base_simulator
+from .baseSIMulator import Base_simulator
 import numpy as np
 
 
