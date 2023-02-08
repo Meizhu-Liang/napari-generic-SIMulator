@@ -232,19 +232,20 @@ class Base_simulator:
         s3 = self.xp.array([0, 0, 1])  # z polarised illumination orientation
         excitation3 = (s3 @ p.T) ** 2
 
+        fx1 = self.xp.sqrt(self.k0 / kz) * (self.k0 * ky ** 2 + kx ** 2 * kz) / (self.k0 * kr2) * e_in
+        fy1 = self.xp.sqrt(self.k0 / kz) * kx * ky * (kz - self.k0) / (self.k0 * kr2) * e_in
+        fx2 = self.xp.sqrt(self.k0 / kz) * kx * ky * (kz - self.k0) / (self.k0 * kr2) * e_in
+        fy2 = self.xp.sqrt(self.k0 / kz) * (self.k0 * kx ** 2 + ky ** 2 * kz) / (self.k0 * kr2) * e_in
+        fx3 = self.xp.sqrt(self.k0 / kz) * kx / self.k0 * e_in
+        fy3 = self.xp.sqrt(self.k0 / kz) * ky / self.k0 * e_in
+
         for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
-            fx1 = self.k0 * (self.k0 * ky ** 2 + kx ** 2 * kz) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Exx = self.xp.fft.fftshift(self.xp.fft.fft2(fx1))  # x-polarised field at camera for x-oriented dipole
-            fy1 = self.k0 * kx * ky * (kz - self.k0) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Exy = self.xp.fft.fftshift(self.xp.fft.fft2(fy1))  # y-polarised field at camera for x-oriented dipole
-            fx2 = self.k0 * kx * ky * (kz - self.k0) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Eyx = self.xp.fft.fftshift(self.xp.fft.fft2(fx2))  # x-polarised field at camera for y-oriented dipole
-            fy2 = self.k0 * (self.k0 * kx ** 2 + ky ** 2 * kz) / (self.xp.sqrt(kz / self.k0) * kr2) * e_in * np.exp(1j * z * kz)
-            Eyy = self.xp.fft.fftshift(self.xp.fft.fft2(fy2))  # y-polarised field at camera for y-oriented dipole
-            fx3 = self.k0 * kx / self.xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
-            Ezx = self.xp.fft.fftshift(self.xp.fft.fft2(fx3))  # x-polarised field at camera for z-oriented dipole
-            fy3 = self.k0 * ky / self.xp.sqrt(kz / self.k0) * e_in * np.exp(1j * z * kz)
-            Ezy = self.xp.fft.fftshift(self.xp.fft.fft2(fy3))  # y-polarised field at camera for z-oriented dipole
+            Exx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx1 * np.exp(1j * z * kz)))  # x-polarised field at camera for x-oriented dipole
+            Exy = self.xp.fft.fftshift(self.xp.fft.ifft2(fy1 * np.exp(1j * z * kz)))  # y-polarised field at camera for x-oriented dipole
+            Eyx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx2 * np.exp(1j * z * kz)))  # x-polarised field at camera for y-oriented dipole
+            Eyy = self.xp.fft.fftshift(self.xp.fft.ifft2(fy2 * np.exp(1j * z * kz)))  # y-polarised field at camera for y-oriented dipole
+            Ezx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx3 * np.exp(1j * z * kz)))  # x-polarised field at camera for z-oriented dipole
+            Ezy = self.xp.fft.fftshift(self.xp.fft.ifft2(fy3 * np.exp(1j * z * kz)))  # y-polarised field at camera for z-oriented dipole
             intensityx = self.xp.zeros((self.Nn, self.Nn))
             intensityy = self.xp.zeros((self.Nn, self.Nn))
             intensityz = self.xp.zeros((self.Nn, self.Nn))
@@ -265,6 +266,7 @@ class Base_simulator:
             psf[nz, :, :] = intensity * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
 
             nz = nz + 1
+        psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
         return psf
 
     def get_scalar_psf(self):
