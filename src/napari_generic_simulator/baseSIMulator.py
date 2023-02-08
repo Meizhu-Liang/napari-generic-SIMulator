@@ -165,13 +165,10 @@ class Base_simulator:
 
     def get_vector_psf(self):
         # use krmax to define the pupil function
-        # kx = self.krmax * (self.kx + 1e-15)
-        # ky = self.krmax * (self.ky + 1e-15)
-        kx = self.krmax * (self.kx)
-        ky = self.krmax * (self.ky)
+        kx = self.krmax * (self.kx + 1e-7)  # need to add small offset to avoid division by zero
+        ky = self.krmax * (self.ky + 1e-7)
         kr2 = (kx ** 2 + ky ** 2)  # square kr
         e_in = 1.0 * (kr2 < self.krmax ** 2)
-        e_in = e_in / e_in.sum() ** 2
         kz = np.sqrt((self.k0 ** 2 - kr2) + 0j)
 
         # Calculating psf
@@ -266,7 +263,7 @@ class Base_simulator:
             psf[nz, :, :] = intensity * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
 
             nz = nz + 1
-        psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
+        psf = psf * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
         return psf
 
     def get_scalar_psf(self):
