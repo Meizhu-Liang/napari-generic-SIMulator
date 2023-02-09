@@ -102,7 +102,7 @@ class Base_simulator:
 
         pointsxnr = np.sum(pointsxn * pointsxn, axis=1)  # multiple times the points
         points_sphere = pointsxn[pointsxnr < (rad ** 2), :]  # simulate spheres from cubes
-        self.points = points_sphere[(range(self.npoints)), :]
+        self.points = np.single(points_sphere[(range(self.npoints)), :])
         self.points[:, 2] = self.points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
 
     def phase_tilts(self):
@@ -110,10 +110,22 @@ class Base_simulator:
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
-        self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy)
-        self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz)
-        if (self.acc == 0) | (self.acc == 3):
-            self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
+        if self.acc == 0:
+            self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=np.single)
+            self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=np.single)
+        elif self.acc == 3:
+            self.kxy = cp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=cp.single)
+            self.kz = cp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=cp.single)
+        else:
+            self.kxy = torch.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy,
+                                    dtype=torch.float32, device=self._tdev)
+            self.kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
+                                   dtype=torch.float32, device=self._tdev)
+
+        if self.acc == 0:
+            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+        elif self.acc == 3:
+            self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=cp.complex64)
         else:
             self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
                                           device=self._tdev)
@@ -151,15 +163,14 @@ class Base_simulator:
                         pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     elif self.acc == 3:
-                        px = cp.array(np.exp(1j * np.single(self.x * self.kxy)))
-                        py = cp.array(np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis])
-                        pz = cp.array((np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis])
+                        px = cp.exp(1j * self.x * self.kxy)
+                        py = cp.exp(1j * self.y * self.kxy)[:, cp.newaxis]
+                        pz = (cp.exp(1j * z * self.kz) * ill)[:, cp.newaxis, cp.newaxis]
                         self.phasetilts[isteps, :, :, :] += (px * py) * pz
                     else:
-                        px = torch.as_tensor(np.exp(1j * np.single(self.x * self.kxy)), device=self._tdev)
-                        py = torch.as_tensor(np.exp(1j * np.single(self.y * self.kxy)), device=self._tdev)
-                        pz = torch.as_tensor((np.exp(1j * np.single(z * self.kz)) * ill),
-                                             device=self._tdev)
+                        px = torch.exp(1j * self.x * self.kxy)
+                        py = torch.exp(1j * self.y * self.kxy)
+                        pz = torch.exp(1j * z * self.kz) * ill
                         self.phasetilts[isteps, :, :, :] += (px * py[..., None]) * pz[..., None, None]
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
