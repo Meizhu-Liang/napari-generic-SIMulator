@@ -3,7 +3,7 @@ A child class to simulate raw data of conventional Sim.
 """
 __author__ = "Meizhu Liang @Imperial College London"
 
-from napari_generic_simulator.baseSIMulator import Base_simulator
+from .baseSIMulator import Base_simulator
 import numpy as np
 
 
