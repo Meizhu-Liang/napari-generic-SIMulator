@@ -393,7 +393,7 @@ class Base_simulator:
         else:
             psf = self.get_scalar_psf()
         yield "psf calculated"
-
+        self.psffile = np.sum(psf, axis=(1, 2))
         # Calculating 3d otf
         psf = self.xp.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
         self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
