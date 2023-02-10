@@ -24,6 +24,13 @@ class ConSim_simulator(Base_simulator):
         self.xc = -1
         self.yc = 0
         super().__init__()
+        # systematic errors, could be arbitrary
+        if self.add_error:
+            self.phase_error = [0.51674218, 0.76096741, 0.05281238]
+            self.angle_error = [0.78095176, 0.89493163, 0.11358182]
+        else:
+            self.phase_error = np.zeros(3)
+            self.angle_error = np.zeros(3)
 
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
 
@@ -35,29 +42,23 @@ class ConSim_simulator(Base_simulator):
     def _illAx(self, pstep, astep):
         # illumination with axial polarisation in 3 angles
         # phase
-        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[pstep]
         # angle
         # xr, yr - Cartesian coordinate system with rotation of axes
         xr = self.xc * np.cos(astep * 2 * np.pi / self._angleStep) + self.yc * np.sin(astep * 2 * np.pi / self._angleStep)
         yr = -self.xc * np.sin(astep * 2 * np.pi / self._angleStep) + self.yc * np.cos(astep * 2 * np.pi / self._angleStep)
-        _illAx = 1 / 2 + 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1)
-        # _illAx_0 = 1 + 1 / 2 * np.cos(self.ph * (-2 * self.x) + self._p1)
-        # _illAx_1 = 1 + 1 / 2 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self._p1)
-        # _illAx_2 = 1 + 1 / 2 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self._p1)
+        _illAx = 1 / 2 + 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1 + self.angle_error[astep])
         return _illAx
 
     def _illIp(self, pstep, astep):
         # illumination with in-plane polarisation in 3 angles
         # phase
-        self._p1 = pstep * 2 * np.pi / self._phaseStep
+        self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[pstep]
         # angle
         # xr, yr - Cartesian coordinate system with rotation of axes
         xr = self.xc * np.cos(astep * 2 * np.pi / self._angleStep) + self.yc * np.sin(
             astep * 2 * np.pi / self._angleStep)
         yr = -self.xc * np.sin(astep * 2 * np.pi / self._angleStep) + self.yc * np.cos(
             astep * 2 * np.pi / self._angleStep)
-        _illIp = 1 / 2 - 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1)
-        # _illIp_0 = 1 - 1 / 2 * np.cos(self.ph * (-2 * self.x) + self._p1)
-        # _illIp_1 = 1 - 1 / 2 * np.cos(self.ph * (self.x - np.sqrt(3) * self.y) + self._p1)
-        # _illIp_2 = 1 - 1 / 2 * np.cos(self.ph * (self.x + np.sqrt(3) * self.y) + self._p1)
+        _illIp = 1 / 2 - 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1 + self.angle_error[astep])
         return _illIp
