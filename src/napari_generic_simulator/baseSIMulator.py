@@ -92,6 +92,52 @@ class Base_simulator:
         if (self.acc == 1) | (self.acc == 2):
             self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
 
+    def point_cloud_fil(self):
+        """
+        Generates a point-cloud as the object in the imaging system.
+        """
+
+        L = 5
+        dL = 0.05
+        numFil = 20
+
+        for i in range(numFil):
+            alpha = 2 * np.pi * np.random.rand()
+            beta = np.pi / 4 * (1 - 2 * np.random.rand())
+
+            xS = -L / 2 + L * np.random.rand(1, 1)
+            yS = -L / 2 + L * np.random.rand(1, 1)
+            zS = 0
+
+            x1 = xS + (L * np.cos(alpha) * np.cos(beta))
+            y1 = yS + (L * np.sin(alpha) * np.cos(beta))
+            z1 = zS + (L * np.sin(beta))
+
+            x2 = xS - (L * np.cos(alpha) * np.cos(beta))
+            y2 = yS - (L * np.sin(alpha) * np.cos(beta))
+            z2 = zS - (L * np.sin(beta))
+
+            px = 2 * np.pi * np.random.rand()
+            fx = 2 * np.pi * 0.5 * np.random.rand()
+            ax = L / 3 * np.random.rand()
+            py = 2 * np.pi * np.random.rand()
+            fy = 2 * np.pi * 1.0 * np.random.rand()
+            ay = L / 5 * np.random.rand()
+            pz = 2 * np.pi * np.random.rand()
+            fz = 2 * np.pi * 1.0 * np.random.rand()
+            az = L / 5 * np.random.rand()
+
+            l = np.arange(0, 1, dL / L)
+            x = x1 + (x2 - x1) * l + ax * np.cos(fx * l + px)
+            y = y1 + (y2 - y1) * l + ay * np.cos(fy * l + py)
+            z = z1 + (z2 - z1) * l + az * np.cos(fz * l + pz)
+
+            if i == 0:
+                self.points = np.dstack([x,y,z]).squeeze()
+            else:
+                self.points = np.concatenate((self.points, np.dstack([x,y,z]).squeeze()))
+        self.npoints = self.points.shape[0]
+
     def point_cloud(self):
         """
         Generates a point-cloud as the object in the imaging system.
@@ -384,7 +430,7 @@ class Base_simulator:
     def raw_image_stack_brownian(self):
         # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
         self.initialise()
-        self.point_cloud()
+        self.point_cloud_fil()
         yield "Point cloud calculated"
 
         # Calculating psf
