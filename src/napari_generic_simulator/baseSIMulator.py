@@ -105,37 +105,43 @@ class Base_simulator:
             alpha = 2 * np.pi * np.random.rand()
             beta = np.pi / 4 * (1 - 2 * np.random.rand())
 
-            xS = -L / 2 + L * np.random.rand(1, 1)
-            yS = -L / 2 + L * np.random.rand(1, 1)
+            xS = -L / 2 + L * np.random.rand()
+            yS = -L / 2 + L * np.random.rand()
             zS = 0
 
-            x1 = xS + (L * np.cos(alpha) * np.cos(beta))
-            y1 = yS + (L * np.sin(alpha) * np.cos(beta))
-            z1 = zS + (L * np.sin(beta))
+            x1 = xS + (L / 2 * np.cos(alpha) * np.cos(beta))
+            y1 = yS + (L / 2 * np.sin(alpha) * np.cos(beta))
+            z1 = zS + (L / 2 * np.sin(beta))
 
-            x2 = xS - (L * np.cos(alpha) * np.cos(beta))
-            y2 = yS - (L * np.sin(alpha) * np.cos(beta))
-            z2 = zS - (L * np.sin(beta))
+            x2 = xS - (L / 2 * np.cos(alpha) * np.cos(beta))
+            y2 = yS - (L / 2 * np.sin(alpha) * np.cos(beta))
+            z2 = zS - (L / 2 * np.sin(beta))
 
             px = 2 * np.pi * np.random.rand()
             fx = 2 * np.pi * 0.5 * np.random.rand()
-            ax = L / 3 * np.random.rand()
+            ax = L / 10 * np.random.rand()
             py = 2 * np.pi * np.random.rand()
             fy = 2 * np.pi * 1.0 * np.random.rand()
-            ay = L / 5 * np.random.rand()
+            ay = L / 10 * np.random.rand()
             pz = 2 * np.pi * np.random.rand()
             fz = 2 * np.pi * 1.0 * np.random.rand()
-            az = L / 5 * np.random.rand()
+            az = L / 10 * np.random.rand()
 
             l = np.arange(0, 1, dL / L)
             x = x1 + (x2 - x1) * l + ax * np.cos(fx * l + px)
             y = y1 + (y2 - y1) * l + ay * np.cos(fy * l + py)
             z = z1 + (z2 - z1) * l + az * np.cos(fz * l + pz)
 
+            xd = x[1:] - x[:-1]
+            yd = y[1:] - y[:-1]
+            zd = z[1:] - z[:-1]
+
+            steps = np.sqrt(xd ** 2 + yd ** 2 + zd ** 2)
+            print(f'length = {np.sum(steps)}, average = {np.mean(steps)}, stdev = {np.std(steps)}')
             if i == 0:
-                self.points = np.dstack([x,y,z]).squeeze()
+                self.points = np.dstack([x, y, z]).squeeze()
             else:
-                self.points = np.concatenate((self.points, np.dstack([x,y,z]).squeeze()))
+                self.points = np.concatenate((self.points, np.dstack([x, y, z]).squeeze()))
         self.npoints = self.points.shape[0]
 
     def point_cloud(self):
