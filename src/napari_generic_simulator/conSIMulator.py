@@ -43,22 +43,20 @@ class ConSim_simulator(Base_simulator):
         # illumination with axial polarisation in 3 angles
         # phase
         self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[pstep]
-        # angle
+        angle = astep * 2 * np.pi / self._angleStep + self.angle_error[astep]
         # xr, yr - Cartesian coordinate system with rotation of axes
-        xr = self.xc * np.cos(astep * 2 * np.pi / self._angleStep) + self.yc * np.sin(astep * 2 * np.pi / self._angleStep)
-        yr = -self.xc * np.sin(astep * 2 * np.pi / self._angleStep) + self.yc * np.cos(astep * 2 * np.pi / self._angleStep)
-        _illAx = 1 / 2 + 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1 + self.angle_error[astep])
+        xr = self.xc * np.cos(angle) + self.yc * np.sin(angle)
+        yr = -self.xc * np.sin(angle) + self.yc * np.cos(angle)
+        _illAx = 1 / 2 + 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1)
         return _illAx
 
     def _illIp(self, pstep, astep):
         # illumination with in-plane polarisation in 3 angles
         # phase
         self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[pstep]
-        # angle
+        angle = astep * 2 * np.pi / self._angleStep + self.angle_error[astep]
         # xr, yr - Cartesian coordinate system with rotation of axes
-        xr = self.xc * np.cos(astep * 2 * np.pi / self._angleStep) + self.yc * np.sin(
-            astep * 2 * np.pi / self._angleStep)
-        yr = -self.xc * np.sin(astep * 2 * np.pi / self._angleStep) + self.yc * np.cos(
-            astep * 2 * np.pi / self._angleStep)
-        _illIp = 1 / 2 - 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1 + self.angle_error[astep])
+        xr = self.xc * np.cos(angle) + self.yc * np.sin(angle)
+        yr = -self.xc * np.sin(angle) + self.yc * np.cos(angle)
+        _illIp = 1 / 2 - 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1)
         return _illIp
