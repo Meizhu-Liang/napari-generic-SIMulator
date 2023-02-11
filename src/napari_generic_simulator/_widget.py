@@ -274,7 +274,7 @@ class SIMulator(QWidget):
 
     def print_tiff_tags(self):
         try:
-            frames = tifffile.TiffFile(self._viewer.layers.selection.active.name + '.tif')
+            frames = tifffile.TiffFile(self._viewer.layers.selection.active.source.path)
             page = frames.pages[0]
             # Print file description
             print(f'==={self._viewer.layers.selection.active.name}.tif===\n' + page.tags["ImageDescription"].value)
