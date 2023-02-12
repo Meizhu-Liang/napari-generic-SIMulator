@@ -26,11 +26,13 @@ class ConSim_simulator(Base_simulator):
         super().__init__()
         # systematic errors, could be arbitrary
         if self.add_error:
-            self.phase_error = [0.51674218, 0.76096741, 0.05281238]
-            self.angle_error = [0.78095176, 0.89493163, 0.11358182]
+            self.phase_error = np.array([[0., 0.5, -0.5],
+                                [0., 0.5, 0.5],
+                                [0., -0.5, 0.5]])
+            self.angle_error = np.array([0.78095176, 0.89493163, 0.11358182])
         else:
-            self.phase_error = np.zeros(3)
-            self.angle_error = np.zeros(3)
+            self.phase_error = np.zeros((self._angleStep, self._phaseStep))
+            self.angle_error = np.zeros(self._angleStep)
 
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
 
@@ -39,10 +41,10 @@ class ConSim_simulator(Base_simulator):
         _illCi = 1
         return _illCi
 
-    def _illAx(self, pstep, astep):
+    def _illAx(self, pstep : int, astep : int):
         # illumination with axial polarisation in 3 angles
         # phase
-        self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[pstep]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[astep, pstep]
         angle = astep * 2 * np.pi / self._angleStep + self.angle_error[astep]
         # xr, yr - Cartesian coordinate system with rotation of axes
         xr = self.xc * np.cos(angle) + self.yc * np.sin(angle)
@@ -50,10 +52,10 @@ class ConSim_simulator(Base_simulator):
         _illAx = 1 / 2 + 1 / 2 * np.cos(self.ph * (xr * self.x + yr * self.y) + self._p1)
         return _illAx
 
-    def _illIp(self, pstep, astep):
+    def _illIp(self, pstep : int, astep : int):
         # illumination with in-plane polarisation in 3 angles
         # phase
-        self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[pstep]
+        self._p1 = pstep * 2 * np.pi / self._phaseStep + self.phase_error[astep, pstep]
         angle = astep * 2 * np.pi / self._angleStep + self.angle_error[astep]
         # xr, yr - Cartesian coordinate system with rotation of axes
         xr = self.xc * np.cos(angle) + self.yc * np.sin(angle)
