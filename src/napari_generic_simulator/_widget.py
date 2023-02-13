@@ -41,6 +41,11 @@ class Accel(Enum):
         CUPY = 3
 
 
+class Samples(Enum):
+    POINTS = 0
+    FILAMENTS = 1
+
+
 class SIMulator(QWidget):
     """
     A Napari plugin for the simulation of raw images produced while scanning an object (3D point cloud) through focus as
@@ -71,7 +76,7 @@ class SIMulator(QWidget):
         _layout.addWidget(function.native)
 
     def parameters(self):
-        self.npoints = SpinBox(value=10, name='spin', label='Value:', min=-100, max=10000)
+        self.sample = ComboBox(value=Samples.FILAMENTS, label='Sample', choices=Samples)
         self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
@@ -84,7 +89,8 @@ class SIMulator(QWidget):
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
         self.ill_wavelength = SpinBox(value=500, label='λ  illumination(nm)', step=50)
         self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=50)
-        self.n_points = SpinBox(value=500, name='spin', label='N points', max=10000, step=10)
+
+        self.n_samples = SpinBox(value=20, name='spin', label='N samples', max=10000, step=5)
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
         self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
         self.xdrift = FloatSpinBox(value=0.0, name='spin', label='xdrift(nm)', min=0.0, max=1000.0, step=5)
@@ -98,11 +104,11 @@ class SIMulator(QWidget):
 
     def par_list(self):
         """return the current parameter list"""
-        return [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.Psf.value, self.N.value,
-                self.pixel_size.value, self.magnification.value, self.ill_NA.value, self.det_NA.value,
-                self.n.value, self.ill_wavelength.value, self.det_wavelength.value, self.n_points.value,
-                self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value, self.fwhmz.value,
-                self.random_seed.value, self.drift.value, self.defocus.value, self.sph_abb.value]
+        return [self.sample.value, self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
+                self.Psf.value, self.N.value, self.pixel_size.value, self.magnification.value, self.ill_NA.value,
+                self.det_NA.value, self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
+                self.n_samples.value, self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
+                self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value, self.sph_abb.value]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -115,6 +121,11 @@ class SIMulator(QWidget):
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             self.sim = ConSim_simulator()
             nsteps = self.sim._phaseStep * self.sim._angleStep
+
+        if self.sample.value == Samples.POINTS:
+            self.sim.sample = 'points'
+        else:
+            self.sim.sample = 'filaments'
 
         if self.Polarisation.value == Pol.IN_PLANE:
             self.sim.pol = 'in-plane'
@@ -149,7 +160,7 @@ class SIMulator(QWidget):
         self.sim.n = self.n.value
         self.sim.ill_wavelength = self.ill_wavelength.value
         self.sim.det_wavelength = self.det_wavelength.value
-        self.sim.npoints = self.n_points.value
+        self.sim.nSamples = self.n_samples.value
         self.sim.zrange = self.zrange.value
         self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
         self.tpoints.value = self.sim.tpoints
@@ -161,10 +172,11 @@ class SIMulator(QWidget):
         self.sim.random_seed = self.random_seed.value
         self.sim.defocus = self.defocus.value
         self.sim.sph_abb = self.sph_abb.value
-        self.used_par_list = [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value, self.Psf.value,
+        self.used_par_list = [self.sample.value, self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
+                              self.Psf.value,
                               self.N.value, self.pixel_size.value, self.magnification.value, self.ill_NA.value,
                               self.det_NA.value,
-                              self.n.value, self.ill_wavelength.value, self.det_wavelength.value, self.n_points.value,
+                              self.n.value, self.ill_wavelength.value, self.det_wavelength.value, self.n_samples.value,
                               self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
                               self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
                               self.sph_abb.value]
@@ -184,19 +196,20 @@ class SIMulator(QWidget):
     def get_results(self):
         def show_img(data):
             self._viewer.add_image(data, name='raw image stack',
-                                metadata={'mode': str(self.SIM_mode.value), 'pol': str(self.Polarisation.value),
-                                            'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
-                                            'N': self.N.value, 'pix size': self.pixel_size.value,
-                                            'mag': self.magnification.value, 'ill NA': self.ill_NA.value,
-                                            'det NA': self.det_NA.value, 'n': self.n.value,
-                                            'ill_wavelength': self.ill_wavelength.value,
-                                            'det_wavelength': self.det_wavelength.value,
-                                            'n points': self.n_points.value, 'z range': self.zrange.value,
-                                            'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
-                                            'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
-                                            'random seed': self.random_seed.value, 'Brownian': self.drift.value,
-                                            'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
-                                            })
+                                   metadata={'sample': str(self.sample.value), 'mode': str(self.SIM_mode.value),
+                                             'pol': str(self.Polarisation.value),
+                                             'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
+                                             'N': self.N.value, 'pix size': self.pixel_size.value,
+                                             'mag': self.magnification.value, 'ill NA': self.ill_NA.value,
+                                             'det NA': self.det_NA.value, 'n': self.n.value,
+                                             'ill_wavelength': self.ill_wavelength.value,
+                                             'det_wavelength': self.det_wavelength.value,
+                                             'n samples': self.n_samples.value, 'z range': self.zrange.value,
+                                             'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
+                                             'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
+                                             'random seed': self.random_seed.value, 'Brownian': self.drift.value,
+                                             'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
+                                             })
 
         @thread_worker(connect={"returned": show_img})
         def _get_results():
@@ -211,7 +224,7 @@ class SIMulator(QWidget):
             except Exception as e:
                 print(e)
             return self.sim.img
-        
+
         _get_results()
 
     def show_raw_img_sum(self, show_raw_img_sum: bool = False):
@@ -254,13 +267,14 @@ class SIMulator(QWidget):
                 options = QFileDialog.Options()
                 filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options, filter="Images (*.tif)")
                 tifffile.imwrite(filename[0], self._viewer.layers[self._viewer.layers.selection.active.name].data,
-                                 description=str(self._viewer.layers[self._viewer.layers.selection.active.name].metadata))
+                                 description=str(
+                                     self._viewer.layers[self._viewer.layers.selection.active.name].metadata))
             except Exception as e:
                 print(str(e))
 
     def print_tiff_tags(self):
         try:
-            frames = tifffile.TiffFile(self._viewer.layers.selection.active.name + '.tif')
+            frames = tifffile.TiffFile(self._viewer.layers.selection.active.source.path)
             page = frames.pages[0]
             # Print file description
             print(f'==={self._viewer.layers.selection.active.name}.tif===\n' + page.tags["ImageDescription"].value)
@@ -271,10 +285,10 @@ class SIMulator(QWidget):
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
         w_parameters = Container(
-            widgets=[Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
+            widgets=[Container(widgets=[self.sample, self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
                                         self.pixel_size, self.ill_NA, self.det_NA, self.n,
                                         self.ill_wavelength, self.det_wavelength]),
-                     Container(widgets=[self.magnification, self.n_points, self.zrange, self.tpoints, self.xdrift,
+                     Container(widgets=[self.n_samples, self.magnification, self.zrange, self.tpoints, self.xdrift,
                                         self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
                                         self.sph_abb])], layout="horizontal")
         w_cal = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
@@ -285,4 +299,5 @@ class SIMulator(QWidget):
         w_psf = magicgui(self.show_psf, auto_call=True)
         w_otf = magicgui(self.show_otf, auto_call=True)
         self.messageBox = LineEdit(value="Messages")
-        self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox], labels=None)
+        self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
+                           labels=None)
