@@ -12,6 +12,8 @@ from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
 import tifffile
+import numpy as np
+import open3d as o3d
 
 
 class Sim_mode(Enum):
@@ -42,8 +44,8 @@ class Accel(Enum):
 
 
 class Samples(Enum):
-    POINTS = 0
-    FILAMENTS = 1
+    points = 500
+    filaments = 10
 
 
 class SIMulator(QWidget):
@@ -76,7 +78,7 @@ class SIMulator(QWidget):
         _layout.addWidget(function.native)
 
     def parameters(self):
-        self.sample = ComboBox(value=Samples.FILAMENTS, label='Sample', choices=Samples)
+        self.sample = ComboBox(value=Samples.filaments, label='Sample', choices=Samples)
         self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
@@ -122,7 +124,7 @@ class SIMulator(QWidget):
             self.sim = ConSim_simulator()
             nsteps = self.sim._phaseStep * self.sim._angleStep
 
-        if self.sample.value == Samples.POINTS:
+        if self.sample.value == Samples.points:
             self.sim.sample = 'points'
         else:
             self.sim.sample = 'filaments'
@@ -261,7 +263,7 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
-    def save_tiff_with_tags(self):
+    def save_tif_with_tags(self):
         if hasattr(self.sim, 'img'):
             try:
                 options = QFileDialog.Options()
@@ -272,7 +274,7 @@ class SIMulator(QWidget):
             except Exception as e:
                 print(str(e))
 
-    def print_tiff_tags(self):
+    def print_tif_tags(self):
         try:
             frames = tifffile.TiffFile(self._viewer.layers.selection.active.source.path)
             page = frames.pages[0]
@@ -285,15 +287,16 @@ class SIMulator(QWidget):
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
         w_parameters = Container(
-            widgets=[Container(widgets=[self.sample, self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
-                                        self.pixel_size, self.ill_NA, self.det_NA, self.n,
-                                        self.ill_wavelength, self.det_wavelength]),
-                     Container(widgets=[self.n_samples, self.magnification, self.zrange, self.tpoints, self.xdrift,
-                                        self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
-                                        self.sph_abb])], layout="horizontal")
+            widgets=[
+                Container(widgets=[self.sample, self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
+                                   self.pixel_size, self.ill_NA, self.det_NA, self.n,
+                                   self.ill_wavelength, self.det_wavelength]),
+                Container(widgets=[self.n_samples, self.magnification, self.zrange, self.tpoints, self.xdrift,
+                                   self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
+                                   self.sph_abb])], layout="horizontal")
         w_cal = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
-        w_save_and_print = Container(widgets=[magicgui(self.save_tiff_with_tags, call_button='save_tiff_with_tags'),
-                                              magicgui(self.print_tiff_tags, call_button='print_tags')],
+        w_save_and_print = Container(widgets=[magicgui(self.save_tif_with_tags, call_button='save_tif_with_tags'),
+                                              magicgui(self.print_tif_tags, call_button='print_tags')],
                                      layout="horizontal", labels=None)
         w_sum = magicgui(self.show_raw_img_sum, auto_call=True)
         w_psf = magicgui(self.show_psf, auto_call=True)
@@ -301,3 +304,121 @@ class SIMulator(QWidget):
         self.messageBox = LineEdit(value="Messages")
         self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
                            labels=None)
+
+
+'''A widget to go with the SIMulator widget that could generate, display, load and save point clouds.'''
+
+
+class PointCloud(QWidget):
+    def __init__(self, viewer: 'napari.viewer.Viewer'):
+        self._viewer = viewer
+        super().__init__()
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Sets up the layout and adds the widget to the ui"""
+        self.cloud_widgets()
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.add_magic_function(self.c_w, layout)
+
+    def add_magic_function(self, function, _layout):
+        """Adds the widget to the viewer"""
+        self._viewer.layers.events.inserted.connect(function.reset_choices)
+        self._viewer.layers.events.removed.connect(function.reset_choices)
+        _layout.addWidget(function.native)
+
+    def point_cloud_fil(self, nSamples):
+        # Generates a point-cloud as the object in the imaging system.
+
+        L = 5  # full length of each filament in um
+        dL = 0.05  # target length of each short bit to form a filament
+
+        for i in range(nSamples):
+            alpha = 2 * np.pi * np.random.rand()
+            beta = np.pi / 4 * (1 - 2 * np.random.rand())
+
+            # centres of filaments
+            xS = -L / 2 + L * np.random.rand()
+            yS = -L / 2 + L * np.random.rand()
+            zS = 0
+
+            # starting points of filaments
+            x1 = xS + (L / 2 * np.cos(alpha) * np.cos(beta))
+            y1 = yS + (L / 2 * np.sin(alpha) * np.cos(beta))
+            z1 = zS + (L / 2 * np.sin(beta))
+
+            # ending points of filaments
+            x2 = xS - (L / 2 * np.cos(alpha) * np.cos(beta))
+            y2 = yS - (L / 2 * np.sin(alpha) * np.cos(beta))
+            z2 = zS - (L / 2 * np.sin(beta))
+
+            px = 2 * np.pi * np.random.rand()
+            fx = 2 * np.pi * 0.5 * np.random.rand()
+            ax = L / 10 * np.random.rand()
+            py = 2 * np.pi * np.random.rand()
+            fy = 2 * np.pi * 1.0 * np.random.rand()
+            ay = L / 10 * np.random.rand()
+            pz = 2 * np.pi * np.random.rand()
+            fz = 2 * np.pi * 1.0 * np.random.rand()
+            az = L / 10 * np.random.rand()
+
+            # adding some perturbation
+            l = np.arange(0, 1, dL / L)
+            x = x1 + (x2 - x1) * l + ax * np.cos(fx * l + px)
+            y = y1 + (y2 - y1) * l + ay * np.cos(fy * l + py)
+            z = z1 + (z2 - z1) * l + az * np.cos(fz * l + pz)
+
+            xd = x[1:] - x[:-1]
+            yd = y[1:] - y[:-1]
+            zd = z[1:] - z[:-1]
+
+            # steps = np.sqrt(xd ** 2 + yd ** 2 + zd ** 2)
+            # print(f'length = {np.sum(steps):.2f} um, average = {1000 * np.mean(steps) :.2f} nm, stdev = {1000 * np.std(steps) :.2f} nm')
+            if i == 0:
+                points = np.single(np.dstack([x, y, z]).squeeze())
+            else:
+                points = np.concatenate((points, np.single(np.dstack([x, y, z]).squeeze())))
+        npoints = points.shape[0]
+        return points, npoints
+
+    def point_cloud(self, nSamples):
+        # Generates a point - cloud as the object in the imaging system.
+
+        rad = 5  # radius of sphere of points
+        # Multiply the points several times to get the enough number
+        pointsxn = (2 * np.random.rand(nSamples * 3, 3) - 1) * [rad, rad, rad]
+
+        pointsxnr = np.sum(pointsxn * pointsxn, axis=1)  # multiple times the points
+        points_sphere = pointsxn[pointsxnr < (rad ** 2), :]  # simulate spheres from cubes
+        points = np.single(points_sphere[(range(nSamples)), :])
+        points[:, 2] = points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
+        npoints = nSamples
+        return points, npoints
+
+    def gen_point_cloud(self):
+        if self.w_samples.value == Samples.filaments:
+            self.pc, self.npoints = self.point_cloud_fil(self.w_nSample.value)
+        elif self.w_samples == Samples.points:
+            self.pc, self.npoints = self.point_cloud(self.w_nSample.value)
+        if hasattr(self, 'pc'):
+            try:
+                options = QFileDialog.Options()
+                filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options, filter="(*.pcd)")
+                pcd = o3d.geometry.PointCloud()
+                pcd.points = o3d.utility.Vector3dVector(self.pc)
+                o3d.io.write_point_cloud(filename[0], pcd)
+                self._viewer.open(filename[0])
+            except Exception as e:
+                print(e)
+
+    def cloud_widgets(self):
+        """Creates a widget containing all small widgets"""
+        self.w_samples = ComboBox(value=Samples.filaments, label='sample', choices=Samples)
+        if self.w_samples.value == Samples.filaments:
+            self.w_nSample = SpinBox(value=5, name='spin', label='N_samples')
+        elif self.w_samples == Samples.points:
+            self.w_nSample = SpinBox(value=500, name='spin', label='N_samples')
+        self.c_w = Container(widgets=[self.w_samples, self.w_nSample,
+                                      magicgui(self.gen_point_cloud, call_button='Generate point cloud',
+                                               auto_call=False)])
