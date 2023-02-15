@@ -12,8 +12,3 @@ contributions:
   widgets:
     - command: napari-generic-SIMulator.make_simulator_widget
       display_name: raw images SIMulator
-
-  readers:
-    - command: napari-generic-SIMulator.get_reader
-      accepts_directories: false
-      filename_patterns: ['*.pcd']
