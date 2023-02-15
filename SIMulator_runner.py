@@ -6,9 +6,9 @@ if __name__ == '__main__':
 
     viewer = napari.Viewer()
 
-    simulator = SIMulator(viewer)
     point_cloud = PointCloud(viewer)
-    viewer.window.add_dock_widget(simulator, name='SIM data generator', add_vertical_stretch=True)
+    simulator = SIMulator(viewer)
     viewer.window.add_dock_widget(point_cloud, name='Point cloud generator', add_vertical_stretch=True)
+    viewer.window.add_dock_widget(simulator, name='SIM data generator', add_vertical_stretch=True)
 
     napari.run()
