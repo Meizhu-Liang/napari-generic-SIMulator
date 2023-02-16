@@ -10,7 +10,7 @@ from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from .conSIMulator import ConSim_simulator
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
-from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
+from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons
 from napari.layers import Layer
 import tifffile
 import numpy as np
@@ -18,7 +18,7 @@ import open3d as o3d
 
 
 class Samples(Enum):
-    POINTS = 500
+    SPHEROID = 500
     FILAMENTS = 10
 
 
@@ -43,11 +43,11 @@ class PointCloud(QWidget):
         self._viewer.layers.events.removed.connect(function.reset_choices)
         _layout.addWidget(function.native)
 
-    def point_cloud_fil(self, nSamples):
+    def point_cloud_fil(self, nSamples, L, dL):
         """Generates a point-cloud as the object in the imaging system."""
 
-        L = 5  # full length of each filament in um
-        dL = 0.05  # target length of each short bit to form a filament
+        # L: full length of each filament in um
+        # dL: target length of each short bit to form a filament
 
         for i in range(nSamples):
             alpha = 2 * np.pi * np.random.rand()
@@ -94,28 +94,26 @@ class PointCloud(QWidget):
                 points = np.single(np.dstack([x, y, z]).squeeze())
             else:
                 points = np.concatenate((points, np.single(np.dstack([x, y, z]).squeeze())))
-        npoints = points.shape[0]
         return points
 
-    def point_cloud(self, nSamples):
+    def point_cloud(self, npoints, rad, dep):
         """Generates a point - cloud as the object in the imaging system."""
 
-        rad = 5  # radius of sphere of points
+        # rad: radius of sphere of points
         # Multiply the points several times to get the enough number
-        pointsxn = (2 * np.random.rand(nSamples * 3, 3) - 1) * [rad, rad, rad]
+        pointsxn = (2 * np.random.rand(npoints * 3, 3) - 1) * [rad, rad, rad]
 
         pointsxnr = np.sum(pointsxn * pointsxn, axis=1)  # multiple times the points
         points_sphere = pointsxn[pointsxnr < (rad ** 2), :]  # simulate spheres from cubes
-        points = np.single(points_sphere[(range(nSamples)), :])
-        points[:, 2] = points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
-        npoints = nSamples
+        points = np.single(points_sphere[(range(npoints)), :])
+        points[:, 2] = dep / rad * points[:, 2]  # to make the point cloud for OTF a ellipsoid rather than a sphere
         return points
 
-    def gen_point_cloud(self):
+    def gen_pc(self):
         if self.w_samples.value == Samples.FILAMENTS:
-            self.pc = self.point_cloud_fil(self.w_nSample.value)
-        elif self.w_samples.value == Samples.POINTS:
-            self.pc = self.point_cloud(self.w_nSample.value)
+            self.pc = self.point_cloud_fil(self.fil_n.value, self.fil_len.value, self.fil_step.value)
+        elif self.w_samples.value == Samples.SPHEROID:
+            self.pc = self.point_cloud(self.sph_points.value, self.sph_rad.value, self.sph_dep.value)
         print('Point cloud generated')
         if hasattr(self, 'pc'):
             try:
@@ -123,28 +121,49 @@ class PointCloud(QWidget):
             except Exception as e:
                 print(e)
 
-    def save_point_cloud(self):
+    def save_pc(self):
         if hasattr(self._viewer.layers.selection.active, 'data'):
             try:
                 options = QFileDialog.Options()
-                filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options, filter="Files (*.pcd)")
+                filename = QFileDialog.getSaveFileName(self, 'Save a file', options=options, filter='Files (*.pcd)')
                 pcd = o3d.geometry.PointCloud()
-                # pcd.points = o3d.utility.Vector3dVector(self.pc)
                 pcd.points = o3d.utility.Vector3dVector(self._viewer.layers.selection.active.data)
                 o3d.io.write_point_cloud(filename[0], pcd)
                 print('Point cloud saved')
             except Exception as e:
                 print(e)
 
+    def load_pc(self):
+        try:
+            options = QFileDialog.Options()
+            filename = QFileDialog.getOpenFileName(self, 'Pick a file', options=options, filter='Files (*.pcd)')
+            pcd = o3d.io.read_point_cloud(filename[0])
+            out_arr = np.asarray(pcd.points)
+            self._viewer.add_points(out_arr, size=0.1, name=filename[0])
+        except Exception as e:
+            print(e)
+
     def cloud_widgets(self):
         """Creates a widget containing all small widgets"""
-        self.w_samples = ComboBox(value=Samples.FILAMENTS, label='sample', choices=Samples)
-        self.w_nSample = SpinBox(value=2, name='spin', label='N_samples')
-        self.w_gen_and_save = Container(widgets=[magicgui(self.gen_point_cloud, call_button='Generate point cloud',
-                                        auto_call=False),
-                                        magicgui(self.save_point_cloud, call_button='Save current layer as .pcd',
-                                        auto_call=True)], layout="horizontal", labels=None)
-        self.c_w = Container(widgets=[self.w_samples, self.w_nSample, self.w_gen_and_save])
+        self.w_samples = RadioButtons(value=Samples.FILAMENTS, choices=Samples)
+
+        self.sph_points = SpinBox(value=200, step=50, label='spheroid_points')
+        self.sph_rad = SpinBox(value=5, label='spheroid_radius (μm)')
+        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='spheroid_depth (μm)')
+        self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad])
+
+        self.fil_n = SpinBox(value=5, max=100, label='filament_n')
+        self.fil_len = SpinBox(value=5, label='filament_length (μm)')
+        self.fil_step = FloatSpinBox(value=0.05, step=0.01, max=self.fil_len.value, label='filament_step (μm)')
+        self.w_fil = Container(widgets=[self.fil_n, self.fil_len, self.fil_step])
+
+        self.comprehensive_w = Container(widgets=[magicgui(self.save_pc, call_button='Save current layer as .pcd',
+                                                           auto_call=False),
+                                                  magicgui(self.load_pc, call_button='Load point cloud',
+                                                           auto_call=False)], layout="horizontal", labels=None)
+        self.c_w = Container(widgets=[self.w_samples, self.w_sph, self.w_fil, magicgui(self.gen_pc,
+                                                               call_button='Generate point cloud',
+                                                               auto_call=False), self.comprehensive_w], labels=None)
 
 
 class Sim_mode(Enum):
@@ -415,7 +434,7 @@ class SIMulator(QWidget):
         if hasattr(self._viewer.layers.selection.active, 'data'):
             try:
                 options = QFileDialog.Options()
-                filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options, filter="Images (*.tif)")
+                filename = QFileDialog.getSaveFileName(self, "Save a file", options=options, filter='Images (*.tif)')
                 tifffile.imwrite(filename[0], self._viewer.layers.selection.active.data,
                                  description=str(self._viewer.layers.selection.active.metadata))
             except Exception as e:
@@ -441,14 +460,14 @@ class SIMulator(QWidget):
                                    self.ill_wavelength, self.det_wavelength]),
                 Container(widgets=[self.magnification, self.zrange, self.tpoints, self.xdrift,
                                    self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
-                                   self.sph_abb])], layout="horizontal")
-        w_cal = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
+                                   self.sph_abb])], layout='horizontal')
+        w_cal = magicgui(self.get_results, call_button='Calculate raw image stack', auto_call=False)
         w_save_and_print = Container(widgets=[magicgui(self.save_tif_with_tags, call_button='save_tif_with_tags'),
                                               magicgui(self.print_tif_tags, call_button='print_tags')],
-                                     layout="horizontal", labels=None)
+                                     layout='horizontal', labels=None)
         w_sum = magicgui(self.show_raw_img_sum, auto_call=True)
         w_psf = magicgui(self.show_psf, auto_call=True)
         w_otf = magicgui(self.show_otf, auto_call=True)
-        self.messageBox = LineEdit(value="Messages")
+        self.messageBox = LineEdit(value='Messages')
         self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
                            labels=None)
