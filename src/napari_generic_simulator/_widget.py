@@ -117,7 +117,7 @@ class PointCloud(QWidget):
         print('Point cloud generated')
         if hasattr(self, 'pc'):
             try:
-                self._viewer.add_points(-self.pc[:,::-1], size=self.fil_step.value, name=self.w_samples.value)
+                self._viewer.add_points(-self.pc[:, ::-1], size=self.fil_step.value, name=self.w_samples.value)
             except Exception as e:
                 print(e)
 
@@ -127,7 +127,7 @@ class PointCloud(QWidget):
                 options = QFileDialog.Options()
                 filename = QFileDialog.getSaveFileName(self, 'Save a file', options=options, filter='Files (*.pcd)')
                 pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(self._viewer.layers.selection.active.data)
+                pcd.points = o3d.utility.Vector3dVector(-self._viewer.layers.selection.active.data[:, ::-1])
                 o3d.io.write_point_cloud(filename[0], pcd)
                 print('Point cloud saved')
             except Exception as e:
@@ -335,20 +335,6 @@ class SIMulator(QWidget):
         if hasattr(self, 'sim'):
             delattr(self, 'sim')
 
-    # @magicgui(call_button='Select image layer')
-    # def select_layer(self, layer: Layer):
-    #     """
-    #     Selects a layer used to simulate raw SIM stacks, it contains the raw point-cloud data.
-    #     Layer : napari.layers.Image
-    #     """
-    #     if not isinstance(layer, Layer):
-    #         return
-    #     if hasattr(self, 'points'):
-    #         delattr(self, 'points')
-    #     self.points = layer.data
-    #     self.npoints = self.points.shape[0]
-    #     self.messageBox.value = f'Selected image layer: {layer.name}'
-
     def select_layer(self, layer: Layer):
         """
         Selects a layer used to simulate raw SIM stacks, it contains the raw point-cloud data.
@@ -358,7 +344,7 @@ class SIMulator(QWidget):
             return
         if hasattr(self, 'points'):
             delattr(self, 'points')
-        self.points = -layer.data[:,::-1]
+        self.points = -layer.data[:, ::-1]
         self.npoints = self.points.shape[0]
         self.messageBox.value = f'Selected image layer: {layer.name}'
 
