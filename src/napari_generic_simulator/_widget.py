@@ -214,7 +214,6 @@ class SIMulator(QWidget):
         self.wrap_widgets()
         layout = QVBoxLayout()
         self.setLayout(layout)
-        self.add_magic_function(self.select_layer, layout)
         self.add_magic_function(self.w, layout)
 
     def add_magic_function(self, function, _layout):
@@ -336,7 +335,20 @@ class SIMulator(QWidget):
         if hasattr(self, 'sim'):
             delattr(self, 'sim')
 
-    @magicgui(call_button='Select image layer')
+    # @magicgui(call_button='Select image layer')
+    # def select_layer(self, layer: Layer):
+    #     """
+    #     Selects a layer used to simulate raw SIM stacks, it contains the raw point-cloud data.
+    #     Layer : napari.layers.Image
+    #     """
+    #     if not isinstance(layer, Layer):
+    #         return
+    #     if hasattr(self, 'points'):
+    #         delattr(self, 'points')
+    #     self.points = layer.data
+    #     self.npoints = self.points.shape[0]
+    #     self.messageBox.value = f'Selected image layer: {layer.name}'
+
     def select_layer(self, layer: Layer):
         """
         Selects a layer used to simulate raw SIM stacks, it contains the raw point-cloud data.
@@ -469,5 +481,5 @@ class SIMulator(QWidget):
         w_psf = magicgui(self.show_psf, auto_call=True)
         w_otf = magicgui(self.show_otf, auto_call=True)
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
+        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select image layer'), w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
                            labels=None)
