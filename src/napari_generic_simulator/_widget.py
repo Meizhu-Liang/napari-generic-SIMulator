@@ -117,7 +117,7 @@ class PointCloud(QWidget):
         print('Point cloud generated')
         if hasattr(self, 'pc'):
             try:
-                self._viewer.add_points(self.pc, size=0.1, name=self.w_samples.value)
+                self._viewer.add_points(-self.pc[:,::-1], size=self.fil_step.value, name=self.w_samples.value)
             except Exception as e:
                 print(e)
 
@@ -358,7 +358,7 @@ class SIMulator(QWidget):
             return
         if hasattr(self, 'points'):
             delattr(self, 'points')
-        self.points = layer.data
+        self.points = -layer.data[:,::-1]
         self.npoints = self.points.shape[0]
         self.messageBox.value = f'Selected image layer: {layer.name}'
 
@@ -368,6 +368,12 @@ class SIMulator(QWidget):
         else:
             def show_img(data):
                 self._viewer.add_image(data, name='raw image stack',
+                                       scale=(self.zdrift.value * 0.001,
+                                              self.pixel_size.value / self.magnification.value,
+                                              self.pixel_size.value / self.magnification.value),
+                                       translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2),
                                        metadata={'mode': str(self.SIM_mode.value),
                                                  'pol': str(self.Polarisation.value),
                                                  'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
@@ -383,9 +389,12 @@ class SIMulator(QWidget):
                                                  'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
                                                  })
                 current_step = list(self._viewer.dims.current_step)
+                print(current_step)
+                print(data.shape)
                 for dim_idx in [-3, -2, -1]:
                     current_step[dim_idx] = data.shape[dim_idx] // 2
                 self._viewer.dims.current_step = current_step
+                print(current_step)
                 delattr(self, 'points')
 
             @thread_worker(connect={"returned": show_img})
