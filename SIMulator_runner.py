@@ -1,9 +1,14 @@
-from src.napari_generic_simulator._widget import SIMulator
+from src.napari_generic_simulator._widget import SIMulator, PointCloud
 
 if __name__ == '__main__':
     import napari
+
     viewer = napari.Viewer()
-    test = SIMulator(viewer)
-    viewer.window.add_dock_widget(test, name='SIM data generator', add_vertical_stretch=True)
+
+    point_cloud = PointCloud(viewer)
+    simulator = SIMulator(viewer)
+    w1 = viewer.window.add_dock_widget(point_cloud, name='Point cloud generator', add_vertical_stretch=True)
+    w2 = viewer.window.add_dock_widget(simulator, name='SIM data generator', add_vertical_stretch=True)
+    viewer.window._qt_window.tabifyDockWidget(w1, w2)
 
     napari.run()

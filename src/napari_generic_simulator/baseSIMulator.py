@@ -29,8 +29,9 @@ except:
     torch_GPU = False
 
 class Base_simulator:
+    points = None
+    npoints = 0
     xp = np
-    sample = None
     pol = None  # polarisation
     acc = None  # acceleration
     psf_calc = None
@@ -43,7 +44,6 @@ class Base_simulator:
     n = 1.33  # refractive index at sample
     ill_wavelength = 520  # illumination wavelength in nm
     det_wavelength = 570  # detection wavelength in nm
-    nSamples = 1  # number of samples
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
@@ -93,75 +93,6 @@ class Base_simulator:
             self.dzn = self.dz
         if (self.acc == 1) | (self.acc == 2):
             self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
-
-    def point_cloud_fil(self):
-        """
-        Generates a point-cloud as the object in the imaging system.
-        """
-
-        L = 5  # full length of each filament in um
-        dL = 0.05  # target length of each short bit to form a filament
-
-        for i in range(self.nSamples):
-            alpha = 2 * np.pi * np.random.rand()
-            beta = np.pi / 4 * (1 - 2 * np.random.rand())
-
-            # centres of filaments
-            xS = -L / 2 + L * np.random.rand()
-            yS = -L / 2 + L * np.random.rand()
-            zS = 0
-
-            # starting points of filaments
-            x1 = xS + (L / 2 * np.cos(alpha) * np.cos(beta))
-            y1 = yS + (L / 2 * np.sin(alpha) * np.cos(beta))
-            z1 = zS + (L / 2 * np.sin(beta))
-
-            # ending points of filaments
-            x2 = xS - (L / 2 * np.cos(alpha) * np.cos(beta))
-            y2 = yS - (L / 2 * np.sin(alpha) * np.cos(beta))
-            z2 = zS - (L / 2 * np.sin(beta))
-
-            px = 2 * np.pi * np.random.rand()
-            fx = 2 * np.pi * 0.5 * np.random.rand()
-            ax = L / 10 * np.random.rand()
-            py = 2 * np.pi * np.random.rand()
-            fy = 2 * np.pi * 1.0 * np.random.rand()
-            ay = L / 10 * np.random.rand()
-            pz = 2 * np.pi * np.random.rand()
-            fz = 2 * np.pi * 1.0 * np.random.rand()
-            az = L / 10 * np.random.rand()
-
-            # adding some perturbation
-            l = np.arange(0, 1, dL / L)
-            x = x1 + (x2 - x1) * l + ax * np.cos(fx * l + px)
-            y = y1 + (y2 - y1) * l + ay * np.cos(fy * l + py)
-            z = z1 + (z2 - z1) * l + az * np.cos(fz * l + pz)
-
-            xd = x[1:] - x[:-1]
-            yd = y[1:] - y[:-1]
-            zd = z[1:] - z[:-1]
-
-            # steps = np.sqrt(xd ** 2 + yd ** 2 + zd ** 2)
-            # print(f'length = {np.sum(steps):.2f} um, average = {1000 * np.mean(steps) :.2f} nm, stdev = {1000 * np.std(steps) :.2f} nm')
-            if i == 0:
-                self.points = np.single(np.dstack([x, y, z]).squeeze())
-            else:
-                self.points = np.concatenate((self.points, np.single(np.dstack([x, y, z]).squeeze())))
-        self.npoints = self.points.shape[0]
-
-    def point_cloud(self):
-        """
-        Generates a point-cloud as the object in the imaging system.
-        """
-        rad = 5  # radius of sphere of points
-        # Multiply the points several times to get the enough number
-        pointsxn = (2 * np.random.rand(self.nSamples * 3, 3) - 1) * [rad, rad, rad]
-
-        pointsxnr = np.sum(pointsxn * pointsxn, axis=1)  # multiple times the points
-        points_sphere = pointsxn[pointsxnr < (rad ** 2), :]  # simulate spheres from cubes
-        self.points = np.single(points_sphere[(range(self.nSamples)), :])
-        self.points[:, 2] = self.points[:, 2] / 2  # to make the point cloud for OTF a ellipsoid rather than a sphere
-        self.npoints = self.nSamples
 
     def phase_tilts(self):
         """Generates phase tilts in frequency space"""
@@ -440,13 +371,8 @@ class Base_simulator:
     #     yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
     def raw_image_stack_brownian(self):
-        # Calculates point cloud, phase tilts, 3d psf and otf before the image stack
+        # Calculates 3d psf and otf before the image stack
         self.initialise()
-        if self.sample == 'points':
-            self.point_cloud()
-        elif self.sample == 'filaments':
-            self.point_cloud_fil()
-        yield "Point cloud calculated"
 
         # Calculating psf
         if self.psf_calc == 'vector':
@@ -455,6 +381,7 @@ class Base_simulator:
             psf = self.get_scalar_psf()
         yield "psf calculated"
         self.psffile = np.sum(psf, axis=(1, 2))
+
         # Calculating 3d otf
         psf = self.xp.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
         self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
@@ -483,6 +410,7 @@ class Base_simulator:
             img = self.xp.zeros((int(self.tpoints), self.N, self.N), dtype=np.single)
         else:
             img = torch.empty((int(self.tpoints), self.N, self.N), dtype=torch.float, device=self._tdev)
+
         start_Brownian = time.time()
         tplane = 0
         yield "Starting stack"

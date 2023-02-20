@@ -10,8 +10,160 @@ from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from .conSIMulator import ConSim_simulator
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
-from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit
+from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons
+from napari.layers import Layer
 import tifffile
+import numpy as np
+import open3d as o3d
+
+
+class Samples(Enum):
+    SPHEROID = 500
+    FILAMENTS = 10
+
+
+class PointCloud(QWidget):
+    """A widget to go with the SIMulator widget that could generate, display, load and save point clouds."""
+
+    def __init__(self, viewer: 'napari.viewer.Viewer'):
+        self._viewer = viewer
+        super().__init__()
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Sets up the layout and adds the widget to the ui"""
+        self.cloud_widgets()
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.add_magic_function(self.c_w, layout)
+
+    def add_magic_function(self, function, _layout):
+        """Adds the widget to the viewer"""
+        self._viewer.layers.events.inserted.connect(function.reset_choices)
+        self._viewer.layers.events.removed.connect(function.reset_choices)
+        _layout.addWidget(function.native)
+
+    def point_cloud_fil(self, nSamples, L, dL):
+        """Generates a point-cloud as the object in the imaging system."""
+
+        # L: full length of each filament in um
+        # dL: target length of each short bit to form a filament
+
+        for i in range(nSamples):
+            alpha = 2 * np.pi * np.random.rand()
+            beta = np.pi / 4 * (1 - 2 * np.random.rand())
+
+            # centres of filaments
+            xS = -L / 2 + L * np.random.rand()
+            yS = -L / 2 + L * np.random.rand()
+            zS = 0
+
+            # starting points of filaments
+            x1 = xS + (L / 2 * np.cos(alpha) * np.cos(beta))
+            y1 = yS + (L / 2 * np.sin(alpha) * np.cos(beta))
+            z1 = zS + (L / 2 * np.sin(beta))
+
+            # ending points of filaments
+            x2 = xS - (L / 2 * np.cos(alpha) * np.cos(beta))
+            y2 = yS - (L / 2 * np.sin(alpha) * np.cos(beta))
+            z2 = zS - (L / 2 * np.sin(beta))
+
+            px = 2 * np.pi * np.random.rand()
+            fx = 2 * np.pi * 0.5 * np.random.rand()
+            ax = L / 10 * np.random.rand()
+            py = 2 * np.pi * np.random.rand()
+            fy = 2 * np.pi * 1.0 * np.random.rand()
+            ay = L / 10 * np.random.rand()
+            pz = 2 * np.pi * np.random.rand()
+            fz = 2 * np.pi * 1.0 * np.random.rand()
+            az = L / 10 * np.random.rand()
+
+            # adding some perturbation
+            l = np.arange(0, 1, dL / L)
+            x = x1 + (x2 - x1) * l + ax * np.cos(fx * l + px)
+            y = y1 + (y2 - y1) * l + ay * np.cos(fy * l + py)
+            z = z1 + (z2 - z1) * l + az * np.cos(fz * l + pz)
+
+            xd = x[1:] - x[:-1]
+            yd = y[1:] - y[:-1]
+            zd = z[1:] - z[:-1]
+
+            # steps = np.sqrt(xd ** 2 + yd ** 2 + zd ** 2)
+            # print(f'length = {np.sum(steps):.2f} um, average = {1000 * np.mean(steps) :.2f} nm, stdev = {1000 * np.std(steps) :.2f} nm')
+            if i == 0:
+                points = np.single(np.dstack([x, y, z]).squeeze())
+            else:
+                points = np.concatenate((points, np.single(np.dstack([x, y, z]).squeeze())))
+        return points
+
+    def point_cloud(self, npoints, rad, dep):
+        """Generates a point - cloud as the object in the imaging system."""
+
+        # rad: radius of sphere of points
+        # Multiply the points several times to get the enough number
+        pointsxn = (2 * np.random.rand(npoints * 3, 3) - 1) * [rad, rad, rad]
+
+        pointsxnr = np.sum(pointsxn * pointsxn, axis=1)  # multiple times the points
+        points_sphere = pointsxn[pointsxnr < (rad ** 2), :]  # simulate spheres from cubes
+        points = np.single(points_sphere[(range(npoints)), :])
+        points[:, 2] = dep / rad * points[:, 2]  # to make the point cloud for OTF a ellipsoid rather than a sphere
+        return points
+
+    def gen_pc(self):
+        if self.w_samples.value == Samples.FILAMENTS:
+            self.pc = self.point_cloud_fil(self.fil_n.value, self.fil_len.value, self.fil_step.value)
+        elif self.w_samples.value == Samples.SPHEROID:
+            self.pc = self.point_cloud(self.sph_points.value, self.sph_rad.value, self.sph_dep.value)
+        print('Point cloud generated')
+        if hasattr(self, 'pc'):
+            try:
+                self._viewer.add_points(-self.pc[:, ::-1], size=self.fil_step.value, name=self.w_samples.value)
+            except Exception as e:
+                print(e)
+
+    def save_pc(self):
+        if hasattr(self._viewer.layers.selection.active, 'data'):
+            try:
+                options = QFileDialog.Options()
+                filename = QFileDialog.getSaveFileName(self, 'Save a file', options=options, filter='Files (*.pcd)')
+                pcd = o3d.geometry.PointCloud()
+                pcd.points = o3d.utility.Vector3dVector(-self._viewer.layers.selection.active.data[:, ::-1])
+                o3d.io.write_point_cloud(filename[0], pcd)
+                print('Point cloud saved')
+            except Exception as e:
+                print(e)
+
+    def load_pc(self):
+        try:
+            options = QFileDialog.Options()
+            filename = QFileDialog.getOpenFileName(self, 'Pick a file', options=options, filter='Files (*.pcd)')
+            pcd = o3d.io.read_point_cloud(filename[0])
+            out_arr = np.asarray(pcd.points)
+            self._viewer.add_points(out_arr, size=0.1, name=filename[0])
+        except Exception as e:
+            print(e)
+
+    def cloud_widgets(self):
+        """Creates a widget containing all small widgets"""
+        self.w_samples = RadioButtons(value=Samples.FILAMENTS, choices=Samples)
+
+        self.sph_points = SpinBox(value=200, step=50, label='spheroid_points')
+        self.sph_rad = SpinBox(value=5, label='spheroid_radius (μm)')
+        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='spheroid_depth (μm)')
+        self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad])
+
+        self.fil_n = SpinBox(value=5, max=100, label='filament_n')
+        self.fil_len = SpinBox(value=5, label='filament_length (μm)')
+        self.fil_step = FloatSpinBox(value=0.05, step=0.01, max=self.fil_len.value, label='filament_step (μm)')
+        self.w_fil = Container(widgets=[self.fil_n, self.fil_len, self.fil_step])
+
+        self.comprehensive_w = Container(widgets=[magicgui(self.save_pc, call_button='Save current layer as .pcd',
+                                                           auto_call=False),
+                                                  magicgui(self.load_pc, call_button='Load point cloud',
+                                                           auto_call=False)], layout="horizontal", labels=None)
+        self.c_w = Container(widgets=[self.w_samples, self.w_sph, self.w_fil, magicgui(self.gen_pc,
+                                                               call_button='Generate point cloud',
+                                                               auto_call=False), self.comprehensive_w], labels=None)
 
 
 class Sim_mode(Enum):
@@ -39,11 +191,6 @@ class Accel(Enum):
             TORCH_GPU = 2
     if import_cp:
         CUPY = 3
-
-
-class Samples(Enum):
-    POINTS = 0
-    FILAMENTS = 1
 
 
 class SIMulator(QWidget):
@@ -76,7 +223,6 @@ class SIMulator(QWidget):
         _layout.addWidget(function.native)
 
     def parameters(self):
-        self.sample = ComboBox(value=Samples.FILAMENTS, label='Sample', choices=Samples)
         self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
@@ -90,7 +236,6 @@ class SIMulator(QWidget):
         self.ill_wavelength = SpinBox(value=500, label='λ  illumination(nm)', step=50)
         self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=50)
 
-        self.n_samples = SpinBox(value=20, name='spin', label='N samples', max=10000, step=5)
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
         self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
         self.xdrift = FloatSpinBox(value=0.0, name='spin', label='xdrift(nm)', min=0.0, max=1000.0, step=5)
@@ -104,10 +249,10 @@ class SIMulator(QWidget):
 
     def par_list(self):
         """return the current parameter list"""
-        return [self.sample.value, self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
+        return [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
                 self.Psf.value, self.N.value, self.pixel_size.value, self.magnification.value, self.ill_NA.value,
                 self.det_NA.value, self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
-                self.n_samples.value, self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
+                self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
                 self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value, self.sph_abb.value]
 
     def set_att(self):
@@ -121,11 +266,6 @@ class SIMulator(QWidget):
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             self.sim = ConSim_simulator()
             nsteps = self.sim._phaseStep * self.sim._angleStep
-
-        if self.sample.value == Samples.POINTS:
-            self.sim.sample = 'points'
-        else:
-            self.sim.sample = 'filaments'
 
         if self.Polarisation.value == Pol.IN_PLANE:
             self.sim.pol = 'in-plane'
@@ -152,6 +292,9 @@ class SIMulator(QWidget):
         elif self.Psf.value == Psf_calc.SCALAR:
             self.sim.psf_calc = 'scalar'
 
+        self.sim.points = self.points
+        self.sim.npoints = self.npoints
+
         self.sim.N = self.N.value
         self.sim.pixel_size = self.pixel_size.value
         self.sim.magnification = self.magnification.value
@@ -160,7 +303,6 @@ class SIMulator(QWidget):
         self.sim.n = self.n.value
         self.sim.ill_wavelength = self.ill_wavelength.value
         self.sim.det_wavelength = self.det_wavelength.value
-        self.sim.nSamples = self.n_samples.value
         self.sim.zrange = self.zrange.value
         self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
         self.tpoints.value = self.sim.tpoints
@@ -172,11 +314,11 @@ class SIMulator(QWidget):
         self.sim.random_seed = self.random_seed.value
         self.sim.defocus = self.defocus.value
         self.sim.sph_abb = self.sph_abb.value
-        self.used_par_list = [self.sample.value, self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
+        self.used_par_list = [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
                               self.Psf.value,
                               self.N.value, self.pixel_size.value, self.magnification.value, self.ill_NA.value,
                               self.det_NA.value,
-                              self.n.value, self.ill_wavelength.value, self.det_wavelength.value, self.n_samples.value,
+                              self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
                               self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
                               self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
                               self.sph_abb.value]
@@ -187,92 +329,126 @@ class SIMulator(QWidget):
             self.stop_simulator()
             self.start_simulator()
         else:
-            self.set_att()
+            pass
 
     def stop_simulator(self):
         if hasattr(self, 'sim'):
             delattr(self, 'sim')
 
+    def select_layer(self, layer: Layer):
+        """
+        Selects a layer used to simulate raw SIM stacks, it contains the raw point-cloud data.
+        Layer : napari.layers.Image
+        """
+        if not isinstance(layer, Layer):
+            return
+        if hasattr(self, 'points'):
+            delattr(self, 'points')
+        self.points = -layer.data[:, ::-1]
+        self.npoints = self.points.shape[0]
+        self.messageBox.value = f'Selected image layer: {layer.name}'
+
     def get_results(self):
-        def show_img(data):
-            self._viewer.add_image(data, name='raw image stack',
-                                   metadata={'sample': str(self.sample.value), 'mode': str(self.SIM_mode.value),
-                                             'pol': str(self.Polarisation.value),
-                                             'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
-                                             'N': self.N.value, 'pix size': self.pixel_size.value,
-                                             'mag': self.magnification.value, 'ill NA': self.ill_NA.value,
-                                             'det NA': self.det_NA.value, 'n': self.n.value,
-                                             'ill_wavelength': self.ill_wavelength.value,
-                                             'det_wavelength': self.det_wavelength.value,
-                                             'n samples': self.n_samples.value, 'z range': self.zrange.value,
-                                             'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
-                                             'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
-                                             'random seed': self.random_seed.value, 'Brownian': self.drift.value,
-                                             'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
-                                             })
+        if not hasattr(self, 'points'):
+            self.messageBox.value = f'Please select a point-cloud layer'
+        else:
+            def show_img(data):
+                self._viewer.add_image(data, name='raw image stack',
+                                       scale=(self.zdrift.value * 0.001,
+                                              self.pixel_size.value / self.magnification.value,
+                                              self.pixel_size.value / self.magnification.value),
+                                       translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                       metadata={'mode': str(self.SIM_mode.value),
+                                                 'pol': str(self.Polarisation.value),
+                                                 'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
+                                                 'N': self.N.value, 'pix size': self.pixel_size.value,
+                                                 'mag': self.magnification.value, 'ill NA': self.ill_NA.value,
+                                                 'det NA': self.det_NA.value, 'n': self.n.value,
+                                                 'ill_wavelength': self.ill_wavelength.value,
+                                                 'det_wavelength': self.det_wavelength.value,
+                                                 'z range': self.zrange.value,
+                                                 'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
+                                                 'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
+                                                 'random seed': self.random_seed.value, 'Brownian': self.drift.value,
+                                                 'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
+                                                 })
+                current_step = list(self._viewer.dims.current_step)
+                print(current_step)
+                print(data.shape)
+                for dim_idx in [-3, -2, -1]:
+                    current_step[dim_idx] = data.shape[dim_idx] // 2
+                self._viewer.dims.current_step = current_step
+                print(current_step)
+                delattr(self, 'points')
 
-        @thread_worker(connect={"returned": show_img})
-        def _get_results():
-            self.set_att()
-            # if self.sim.drift != 0.0:
-            t = self.sim.raw_image_stack_brownian()
-            # else:
-            #     t = self.sim.raw_image_stack()
-            try:
-                while True:
-                    self.messageBox.value = next(t)
-            except Exception as e:
-                print(e)
-            return self.sim.img
+            @thread_worker(connect={"returned": show_img})
+            def _get_results():
+                self.set_att()
+                # if self.sim.drift != 0.0:
+                t = self.sim.raw_image_stack_brownian()
+                # else:
+                #     t = self.sim.raw_image_stack()
+                try:
+                    while True:
+                        self.messageBox.value = next(t)
+                except Exception as e:
+                    print(e)
+                return self.sim.img
 
-        _get_results()
+            _get_results()
 
     def show_raw_img_sum(self, show_raw_img_sum: bool = False):
-        if show_raw_img_sum:
+        if hasattr(self, 'sim'):
             if hasattr(self.sim, 'img_sum_z'):
-                if self.used_par_list != self.par_list():
-                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
-                else:
-                    try:
-                        self._viewer.add_image(self.sim.img_sum_z, name='raw image sum along z axis')
-                        self._viewer.add_image(self.sim.img_sum_x, name='raw image sum along x (or y) axis')
-                    except Exception as e:
-                        print(str(e))
+                if show_raw_img_sum:
+                    if self.used_par_list != self.par_list():
+                        self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
+                    else:
+                        try:
+                            self._viewer.add_image(self.sim.img_sum_z, name='raw image sum along z axis')
+                            self._viewer.add_image(self.sim.img_sum_x, name='raw image sum along x (or y) axis')
+                        except Exception as e:
+                            print(str(e))
 
     def show_psf(self, show_3D_psf_slice: bool = False):
-        if show_3D_psf_slice:
+        if hasattr(self, 'sim'):
             if hasattr(self.sim, 'psf_z0'):
-                if self.used_par_list != self.par_list():
-                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
-                else:
-                    try:
-                        self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
-                    except Exception as e:
-                        print(e)
+                if show_3D_psf_slice:
+                    if self.used_par_list != self.par_list():
+                        self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
+                    else:
+                        try:
+                            self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
+                        except Exception as e:
+                            print(e)
 
     def show_otf(self, show_3D_otf_slice: bool = False):
-        if show_3D_otf_slice:
+        if hasattr(self, 'sim'):
             if hasattr(self.sim, 'aotf_x'):
-                if self.used_par_list != self.par_list():
-                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
-                else:
-                    try:
-                        self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
-                    except Exception as e:
-                        print(str(e))
+                if show_3D_otf_slice:
+                    if self.used_par_list != self.par_list():
+                        self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
+                    else:
+                        try:
+                            self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
+                        except Exception as e:
+                            print(str(e))
 
-    def save_tiff_with_tags(self):
-        if hasattr(self.sim, 'img'):
+    def save_tif_with_tags(self):
+        """Saves the selected image layer as a tif file with tags"""
+        if hasattr(self._viewer.layers.selection.active, 'data'):
             try:
                 options = QFileDialog.Options()
-                filename = QFileDialog.getSaveFileName(self, "Pick a file", options=options, filter="Images (*.tif)")
-                tifffile.imwrite(filename[0], self._viewer.layers[self._viewer.layers.selection.active.name].data,
-                                 description=str(
-                                     self._viewer.layers[self._viewer.layers.selection.active.name].metadata))
+                filename = QFileDialog.getSaveFileName(self, "Save a file", options=options, filter='Images (*.tif)')
+                tifffile.imwrite(filename[0], self._viewer.layers.selection.active.data,
+                                 description=str(self._viewer.layers.selection.active.metadata))
             except Exception as e:
                 print(str(e))
 
-    def print_tiff_tags(self):
+    def print_tif_tags(self):
+        """Prints tags of the selected tif image"""
         try:
             frames = tifffile.TiffFile(self._viewer.layers.selection.active.source.path)
             page = frames.pages[0]
@@ -285,19 +461,20 @@ class SIMulator(QWidget):
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
         w_parameters = Container(
-            widgets=[Container(widgets=[self.sample, self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
-                                        self.pixel_size, self.ill_NA, self.det_NA, self.n,
-                                        self.ill_wavelength, self.det_wavelength]),
-                     Container(widgets=[self.n_samples, self.magnification, self.zrange, self.tpoints, self.xdrift,
-                                        self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
-                                        self.sph_abb])], layout="horizontal")
-        w_cal = magicgui(self.get_results, call_button="Calculate raw image stack", auto_call=False)
-        w_save_and_print = Container(widgets=[magicgui(self.save_tiff_with_tags, call_button='save_tiff_with_tags'),
-                                              magicgui(self.print_tiff_tags, call_button='print_tags')],
-                                     layout="horizontal", labels=None)
+            widgets=[
+                Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
+                                   self.pixel_size, self.ill_NA, self.det_NA, self.n,
+                                   self.ill_wavelength, self.det_wavelength]),
+                Container(widgets=[self.magnification, self.zrange, self.tpoints, self.xdrift,
+                                   self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
+                                   self.sph_abb])], layout='horizontal')
+        w_cal = magicgui(self.get_results, call_button='Calculate raw image stack', auto_call=False)
+        w_save_and_print = Container(widgets=[magicgui(self.save_tif_with_tags, call_button='save_tif_with_tags'),
+                                              magicgui(self.print_tif_tags, call_button='print_tags')],
+                                     layout='horizontal', labels=None)
         w_sum = magicgui(self.show_raw_img_sum, auto_call=True)
         w_psf = magicgui(self.show_psf, auto_call=True)
         w_otf = magicgui(self.show_otf, auto_call=True)
-        self.messageBox = LineEdit(value="Messages")
-        self.w = Container(widgets=[w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
+        self.messageBox = LineEdit(value='Messages')
+        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select image layer'), w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
                            labels=None)
