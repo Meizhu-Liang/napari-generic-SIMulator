@@ -61,6 +61,7 @@ class Base_simulator:
         # self.seed(1234)  # set random number generator seed
         self.ill_wavelength = self.ill_wavelength * 1e-3
         self.det_wavelength = self.det_wavelength * 1e-3
+        self.ph = 4 * np.pi * self.ill_NA / self.ill_wavelength
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
         self.dxn = self.det_wavelength / (4 * self.det_NA)  # 2 * Nyquist frequency in x and y.
@@ -123,44 +124,83 @@ class Base_simulator:
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
-        self.ph = 4 * np.pi * self.ill_NA / self.ill_wavelength
-        for astep in range(self._angleStep):
-            for pstep in range(self._phaseStep):
-                self.points += self.drift * np.random.standard_normal(3) / 1000
-                self.points[:, 0] += self.xdrift / 1000
-                self.points[:, 2] += self.zdrift / 1000
-                isteps = pstep + self._phaseStep * astep  # index of the steps
-                for i in range(self.npoints):
-                    prog = (100 * itcount) // total_its
-                    if prog > lastProg + 9:
-                        lastProg = prog
-                        yield f'Phase tilts calculation: {prog:.1f}% done'
-                    itcount += 1
-                    self.x = self.points[i, 0]
-                    self.y = self.points[i, 1]
-                    z = self.points[i, 2]
-                    # get illumination from the child class
-                    if self.pol == 'axial':
-                        ill = self._illAx(pstep, astep)
-                    elif self.pol == 'circular':
-                        ill = self._illCi(pstep, astep)
-                    else:
-                        ill = self._illIp(pstep, astep)
-                    if self.acc == 0:
-                        px = np.exp(1j * np.single(self.x * self.kxy))
-                        py = np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis]
-                        pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
-                        self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                    elif self.acc == 3:
-                        px = cp.exp(1j * self.x * self.kxy)
-                        py = cp.exp(1j * self.y * self.kxy)[:, cp.newaxis]
-                        pz = (cp.exp(1j * z * self.kz) * ill)[:, cp.newaxis, cp.newaxis]
-                        self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                    else:
-                        px = torch.exp(1j * self.x * self.kxy)
-                        py = torch.exp(1j * self.y * self.kxy)
-                        pz = torch.exp(1j * z * self.kz) * ill
-                        self.phasetilts[isteps, :, :, :] += (px * py[..., None]) * pz[..., None, None]
+        # for astep in range(self._angleStep):
+        #     for pstep in range(self._phaseStep):
+        #         self.points += self.drift * np.random.standard_normal(3) / 1000
+        #         self.points[:, 0] += self.xdrift / 1000
+        #         self.points[:, 2] += self.zdrift / 1000
+        #         isteps = pstep + self._phaseStep * astep  # index of the steps
+        #         for i in range(self.npoints):
+        #             prog = (100 * itcount) // total_its
+        #             if prog > lastProg + 9:
+        #                 lastProg = prog
+        #                 yield f'Phase tilts calculation: {prog:.1f}% done'
+        #             itcount += 1
+        #             self.x = self.points[i, 0]
+        #             self.y = self.points[i, 1]
+        #             z = self.points[i, 2]
+        #             # get illumination from the child class
+        #             # if self.pol == 'axial':
+        #             #     ill = self._illAx(pstep, astep)
+        #
+        #             if self.pol == 'axial':
+        #                 ill = self._ill()
+        #             elif self.pol == 'circular':
+        #                 ill = self._illCi(pstep, astep)
+        #             else:
+        #                 ill = self._illIp(pstep, astep)
+        #             if self.acc == 0:
+        #                 px = np.exp(1j * np.single(self.x * self.kxy))
+        #                 py = np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis]
+        #                 pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
+        #                 self.phasetilts[isteps, :, :, :] += (px * py) * pz
+        #             elif self.acc == 3:
+        #                 px = cp.exp(1j * self.x * self.kxy)
+        #                 py = cp.exp(1j * self.y * self.kxy)[:, cp.newaxis]
+        #                 pz = (cp.exp(1j * z * self.kz) * ill)[:, cp.newaxis, cp.newaxis]
+        #                 self.phasetilts[isteps, :, :, :] += (px * py) * pz
+        #             else:
+        #                 px = torch.exp(1j * self.x * self.kxy)
+        #                 py = torch.exp(1j * self.y * self.kxy)
+        #                 pz = torch.exp(1j * z * self.kz) * ill
+        #                 self.phasetilts[isteps, :, :, :] += (px * py[..., None]) * pz[..., None, None]
+
+
+        for n in range(self._n_steps):
+            self.points += self.drift * np.random.standard_normal(3) / 1000
+            self.points[:, 0] += self.xdrift / 1000
+            self.points[:, 2] += self.zdrift / 1000
+            for i in range(self.npoints):
+                prog = (100 * itcount) // total_its
+                if prog > lastProg + 9:
+                    lastProg = prog
+                    yield f'Phase tilts calculation: {prog:.1f}% done'
+                itcount += 1
+                self.x = self.points[i, 0]
+                self.y = self.points[i, 1]
+                z = self.points[i, 2]
+                # get illumination from the child class
+                # if self.pol == 'axial':
+                #     ill = self._illAx(pstep, astep)
+
+                if self.pol == 'axial':
+                    ill = self._ill()
+
+                if self.acc == 0:
+                    px = np.exp(1j * np.single(self.x * self.kxy))
+                    py = np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis]
+                    pz = (np.exp(1j * np.single(z * self.kz)) * ill[n])[:, np.newaxis, np.newaxis]
+                    self.phasetilts[n, :, :, :] += (px * py) * pz
+                elif self.acc == 3:
+                    px = cp.exp(1j * self.x * self.kxy)
+                    py = cp.exp(1j * self.y * self.kxy)[:, cp.newaxis]
+                    pz = (cp.exp(1j * z * self.kz) * ill[n])[:, cp.newaxis, cp.newaxis]
+                    self.phasetilts[n, :, :, :] += (px * py) * pz
+                else:
+                    px = torch.exp(1j * self.x * self.kxy)
+                    py = torch.exp(1j * self.y * self.kxy)
+                    pz = torch.exp(1j * z * self.kz) * ill[n]
+                    self.phasetilts[n, :, :, :] += (px * py[..., None]) * pz[..., None, None]
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
