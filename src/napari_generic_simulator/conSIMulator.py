@@ -22,8 +22,8 @@ class ConSim_simulator(Base_simulator):
         self._phaseStep = 3
         self._angleStep = 3
         # xc, yc - Cartesian coordinate system
-        self.xc = -1
-        self.yc = 0
+        self.xc = 1
+        self.yc = 1
         super().__init__()
         # systematic errors, could be arbitrary
         if self.add_error:
@@ -37,7 +37,7 @@ class ConSim_simulator(Base_simulator):
 
     """All polarisations are normalised to average intensity of 1, and with theta being  π/2 for the light sheet"""
 
-    def _illCi(self):
+    def _illCi(self, pstep: int, astep: int):
         # illumination with circular polarisation in 3 angles
         _illCi = 1
         return _illCi
@@ -79,12 +79,10 @@ class Illumination(Base_simulator):
         super().__init__()
 
         # f_p: field components of different polarised beams
-        if self.pol == 'axial':
-            self.f_p = np.array([1, 0])
-        elif self.pol == 'circular':
-            self.f_p = np.array([1 / np.sqrt(2), 1j / np.sqrt(2)])
-        else:
-            self.f_p = np.array([0, 1])
+        self.f_p = np.array([1, 0])
+        # self.f_p = np.array([1 / np.sqrt(2), 1j / np.sqrt(2)])
+        # self.f_p = np.array([0, 1])
+
 
     def _rotation(self, phi, theta):
         """rotation matrix for the field travelling in z, not for illumination patterns.
@@ -105,19 +103,23 @@ class Illumination(Base_simulator):
             xr = xc * np.cos(angle) + yc * np.sin(angle)
             yr = xc * np.sin(angle) + yc * np.cos(angle)
             for p in range(self._phaseStep):
+                _p1 = p * 2 * np.pi / self._phaseStep
                 f_beams = 0
                 for i in range(self._beam_c.shape[0]):
-
-                    # # f_in: field of input beams
-                    # f_in = self.f_p @ \
-                    #        (np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
-                    #                   [sin(i * self._beam_a), cos(i * self._beam_a)]]))
-
                     # f_in: field of input beams
-                    f_in = (np.array([[cos(np.pi), -sin(np.pi)],
-                                      [sin(np.pi), cos(np.pi)]])) @ self.f_p
+                    f_in = np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
+                                      [sin(i * self._beam_a), cos(i * self._beam_a)]]) @ self.f_p
+
+                    self.x, self.y = 1, 1
+
                     # f_beams: field of interfered beams
-                    f_beams += self._rotation(a * self._beam_a, theta=np.real(np.pi / 2)) @ f_in * np.exp(-1j * (np.array([xr * self.x, yr * self.y]) @ np.array(self.ph * self._beam_c[i])
-                                             - i * p * 2 * np.pi / self._phaseStep))
+                    f_beams += self._rotation(i * self._beam_a, theta=np.pi / 2) @ f_in * np.exp(-1j * (self.ph * np.array(self._beam_c[i]) @ np.array([xr * self.x, yr * self.y]) - i * _p1))
                 ill_intensity[p + self._phaseStep * a] = np.dot(f_beams, np.conj(f_beams))
+                if not hasattr(self, 'print'):
+                    print(xr, yr, p * i)
+                #     # print(self._beam_c[i] @ np.array([xr, yr]))
+                #     print(ill_intensity.max())
+        if not hasattr(self, 'print'):
+            print(ill_intensity)
+        self.print = True
         return ill_intensity
