@@ -91,8 +91,8 @@ class Illumination(Base_simulator):
         """rotation matrix for the field travelling in z, not for illumination patterns.
         phi is the azimuthal angle (0 - 2pi). theta is the polar angle (0 - pi)."""
         R = np.array([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]]) \
-            @ np.array([[cos(theta), 0], [0, 1], [sin(theta), 0]]) \
-            @ np.array([[cos(phi), sin(phi)], [-sin(phi), cos(phi)]])
+            @ np.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
+            @ np.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
         return R
 
     def _ill(self):
@@ -113,18 +113,21 @@ class Illumination(Base_simulator):
                     f_in = np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
                                       [sin(i * self._beam_a), cos(i * self._beam_a)]]) @ self.f_p
 
-                    # self.x, self.y = 1, 1
+                    # self.x, self.y= 1, 1
 
                     # f_beams: field of interfered beams
-                    f_beams[i, :] = self._rotation(i * self._beam_a, theta=np.pi / 2) @ f_in * np.exp(
-                        -1j * (self.ph * np.array(self._beam_c[i]) @ np.array([xr * self.x, yr * self.y]) - i * _p1))
+                    f_beams[i, :] = self._rotation(i * self._beam_a, theta=np.pi / 2) @ np.array([[1, 0], [0, 1], [0, 0]]) @ f_in * np.exp(
+                        -1j * (self.ph * np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
+                                      [sin(i * self._beam_a), cos(i * self._beam_a)]]) @ np.array([xr, yr]) @ np.array([self.x, self.y]) - i * _p1))
+                    if not hasattr(self, 'print'):
+                        print((xr, yr))
                 f_total = np.sum(f_beams, axis=0)
                 ill_intensity[p + self._phaseStep * a] = f_total @ np.conj(f_total)
-                if not hasattr(self, 'print'):
+                # if not hasattr(self, 'print'):
                     # print('================')
                     # print(f_total)
                     # print(p + self._phaseStep * a)
-                    print(xr * self.x, yr * self.y, p * i)
+                    # print(xr * self.x, yr * self.y, p * i)
                 #     # print(self._beam_c[i] @ np.array([xr, yr]))
                 #     print(ill_intensity.max())
         if not hasattr(self, 'print'):
