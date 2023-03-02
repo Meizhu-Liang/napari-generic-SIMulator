@@ -71,9 +71,9 @@ class Illumination(Base_simulator):
     """
 
     def __init__(self):
-        self._phaseStep = 3
-        self._angleStep = 3
-        self._n_steps = self._phaseStep * self._angleStep
+        self._phaseStep = int(3)
+        self._angleStep = int(3)
+        self._n_steps = int(self._phaseStep * self._angleStep)
         self._beam_c = np.array([[1, 0], [-1, 0]])  # beam components
         self._beam_a = 2 * np.pi / self._beam_c.shape[0]  # angle between each two beams
         super().__init__()
@@ -143,11 +143,11 @@ class Illumination(Base_simulator):
     """
 
     def __init__(self):
-        self._phaseStep = 3
-        self._angleStep = 3
-        self._n_beams = 2
-        self._n_steps = self._phaseStep * self._angleStep
-        self._n_bands = (self._n_steps - self._angleStep) / 2
+        self._phaseStep = int(3)
+        self._angleStep = int(3)
+        self._n_beams = int(2)
+        self._n_steps = int(self._phaseStep * self._angleStep)
+        self._n_bands = int((self._n_steps - self._angleStep) / 2)
         super().__init__()
 
         # f_p: field components of different polarised beams
@@ -208,7 +208,7 @@ class Illumination(Base_simulator):
         self.print = True
         return ill_intensity
 
-    def _get_illumination(self, astep: int, pstep: int, ):
+    def _get_alpha(self):
         # xc, yc - Cartesian coordinate system
         xc = -1
         yc = 0
@@ -224,7 +224,7 @@ class Illumination(Base_simulator):
         alpha_band = np.zeros(self._n_bands)
 
         # get alpha values
-        for a in self._angleStep:
+        for a in range(self._angleStep):
             angle = a * 2 * np.pi / self._angleStep
             # xr, yr - Cartesian coordinate system with rotation of axes
             xr = xc * np.cos(angle) + yc * np.sin(angle)
@@ -233,6 +233,7 @@ class Illumination(Base_simulator):
                 phi = i * self._beam_a
                 theta = np.pi / 2
                 _p = i * 2 * np.pi / self._phaseStep  # relative phases between beams
+                print('fhfffffffff')
                 R = np.array([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]]) \
                     @ np.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
                     @ np.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
@@ -240,13 +241,20 @@ class Illumination(Base_simulator):
                             np.exp(1j * _p) * self.f_p)
                 E_beams[i, :] = np.exp(-1j * (np.array([self.x * xr, self.y *yr, 0]) @ R @ np.array([0, 0, k])))
                 con[i, :] = S_beams[i] @ np.conjugate(S_beams[i])
-            alpha[a, 0] = np.sum(con, axis=0)  # constant alpha values
+                print('ssssssssss')
+            self.alpha[a, 0] = np.sum(con, axis=0)  # constant alpha values
 
             b = 0
             for i in range(self._n_beams):
                 for j in range(self._n_beams-i-1):
                     alpha_band[b] = S_beams[i] @ np.conj(S_beams[i + j + 1]) @ E_beams[i] @ np.conjugate(E_beams[i + j + 1])
                     b += 1
-            for p in range(1, self._phaseStep-1):
-                alpha[a, p] = alpha_band[]
+            for i in range((self._phaseStep-1)//2):
+                self.alpha[a, i + 1] = alpha_band[i]
+                self.alpha[a, i + 1 + b] = np.conjugate(alpha_band)
+
+    def _ill_test(self, pstep, astep):
+        self._get_alpha()
+        return self.alpha[pstep, astep]
+
 
