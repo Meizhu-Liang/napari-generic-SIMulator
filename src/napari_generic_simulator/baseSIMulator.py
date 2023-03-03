@@ -97,6 +97,9 @@ class Base_simulator:
 
     def phase_tilts(self):
         """Generates phase tilts in frequency space"""
+
+        self._get_phases()
+
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
@@ -141,8 +144,12 @@ class Base_simulator:
                     z = self.points[i, 2]
                     # get illumination from the child class
 
+                    self._get_alpha_matrix()
+
+
                     if self.pol == 'axial':
-                        ill = self._ill_test(int(pstep), int(astep))
+                        ill = self._ill_test(pstep, astep)
+
                     # elif self.pol == 'circular':
                     #     ill = self._illCi(pstep, astep)
                     # else:
@@ -162,6 +169,11 @@ class Base_simulator:
                         py = torch.exp(1j * self.y * self.kxy)
                         pz = torch.exp(1j * z * self.kz) * ill
                         self.phasetilts[isteps, :, :, :] += (px * py[..., None]) * pz[..., None, None]
+                if not hasattr(self, 'print'):
+                    print(ill)
+        if not hasattr(self, 'print'):
+            print(self.alpha_matrix)
+        self.print = True
 
 
         # for n in range(self._n_steps):
@@ -441,7 +453,6 @@ class Base_simulator:
         # self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
         yield "3d otf calculated"
 
-        self._nsteps = self._phaseStep * self._angleStep
         self.points[:, 0] -= self.xdrift * self.tpoints / 2000
         self.points[:, 2] -= self.zdrift * self.tpoints / 2000
         if (self.acc == 0) | (self.acc == 3):

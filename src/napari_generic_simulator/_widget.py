@@ -258,7 +258,8 @@ class SIMulator(QWidget):
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
         if self.SIM_mode.value == Sim_mode.HEXSIM:
-            self.sim = HexSim_simulator()
+            # self.sim = HexSim_simulator()
+            self.sim = Illumination()
             nsteps = self.sim._phaseStep * self.sim._angleStep
         elif self.SIM_mode.value == Sim_mode.HEXSIM_RA:
             self.sim = RightHexSim_simulator()

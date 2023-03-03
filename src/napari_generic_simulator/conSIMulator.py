@@ -71,11 +71,12 @@ class Illumination(Base_simulator):
     """
 
     def __init__(self):
-        self._phaseStep = int(3)
-        self._angleStep = int(3)
-        self._n_steps = int(self._phaseStep * self._angleStep)
-        self._beam_c = np.array([[1, 0], [-1, 0]])  # beam components
-        self._beam_a = 2 * np.pi / self._beam_c.shape[0]  # angle between each two beams
+        self._phaseStep = 3
+        self._angleStep = 3
+        self._n_beams = 2
+        self._nsteps = int(self._phaseStep * self._angleStep)
+        self._nbands = int((self._nsteps - self._angleStep) / 2)
+        self._beam_a = 2 * np.pi / self._n_beams  # angle between each two beams
         super().__init__()
 
         # f_p: field components of different polarised beams
@@ -86,175 +87,56 @@ class Illumination(Base_simulator):
         # in-plane
         # self.f_p = np.array([0, 1])
 
-    def _rotation(self, phi, theta):
-        """rotation matrix for the field travelling in z, not for illumination patterns.
-        phi is the azimuthal angle (0 - 2pi). theta is the polar angle (0 - pi)."""
-        R = np.array([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]]) \
-            @ np.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
-            @ np.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
-        return R
-
-    def _ill(self):
-        ill_intensity = np.zeros(self._n_steps, dtype=np.complex64)
-        # xc, yc - Cartesian coordinate system
-        xc = -1
-        yc = 0
-        for a in range(self._angleStep):
-            angle = a * 2 * np.pi / self._angleStep
-            # xr, yr - Cartesian coordinate system with rotation of axes
-            xr = xc * np.cos(angle) + yc * np.sin(angle)
-            yr = -xc * np.sin(angle) + yc * np.cos(angle)
-            for p in range(self._phaseStep):
-                _p1 = p * 2 * np.pi / self._phaseStep
-                f_beams = np.zeros((self._beam_c.shape[0], 3), dtype=np.complex64)
-                for i in range(self._beam_c.shape[0]):
-                    # f_in: field of input beams
-                    f_in = np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
-                                     [sin(i * self._beam_a), cos(i * self._beam_a)]]) @ self.f_p
-
-                    # self.x, self.y= 1, 1
-
-                    # f_beams: field of interfered beams
-                    f_beams[i, :] = self._rotation(i * self._beam_a, theta=np.pi / 2) @ np.array(
-                        [[1, 0], [0, 1], [0, 0]]) @ f_in * np.exp(
-                        -1j * (self.ph * np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
-                                                   [sin(i * self._beam_a), cos(i * self._beam_a)]]) @ np.array(
-                            [xr, yr]) @ np.array([self.x, self.y]) - i * _p1))
-                    if not hasattr(self, 'print'):
-                        print((xr, yr))
-                f_total = np.sum(f_beams, axis=0)
-                ill_intensity[p + self._phaseStep * a] = f_total @ np.conj(f_total)
-                # if not hasattr(self, 'print'):
-                # print('================')
-                # print(f_total)
-                # print(p + self._phaseStep * a)
-                # print(xr * self.x, yr * self.y, p * i)
-                #     # print(self._beam_c[i] @ np.array([xr, yr]))
-                #     print(ill_intensity.max())
-        if not hasattr(self, 'print'):
-            print(ill_intensity)
-        self.print = True
-        return ill_intensity
-
-
-class Illumination(Base_simulator):
-    """
-    A class to calculate illumination patterns of multiple beams.
-    """
-
-    def __init__(self):
-        self._phaseStep = int(3)
-        self._angleStep = int(3)
-        self._n_beams = int(2)
-        self._n_steps = int(self._phaseStep * self._angleStep)
-        self._n_bands = int((self._n_steps - self._angleStep) / 2)
-        super().__init__()
-
-        # f_p: field components of different polarised beams
-        # axial
-        self.f_p = np.array([1, 0])
-        # circular
-        # self.f_p = np.array([1 / np.sqrt(2), 1j / np.sqrt(2)])
-        # in-plane
-        # self.f_p = np.array([0, 1])
-
-    def _rotation(self, phi, theta):
-        """rotation matrix for the field travelling in z, not for illumination patterns.
-        phi is the azimuthal angle (0 - 2pi). theta is the polar angle (0 - pi)."""
-        R = np.array([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]]) \
-            @ np.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
-            @ np.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
-        return R
-
-    def _ill(self):
-        ill_intensity = np.zeros(self._n_steps, dtype=np.complex64)
-        # xc, yc - Cartesian coordinate system
-        xc = -1
-        yc = 0
-        for a in range(self._angleStep):
-            angle = a * 2 * np.pi / self._angleStep
-            # xr, yr - Cartesian coordinate system with rotation of axes
-            xr = xc * np.cos(angle) + yc * np.sin(angle)
-            yr = -xc * np.sin(angle) + yc * np.cos(angle)
-            for p in range(self._phaseStep):
-                _p1 = p * 2 * np.pi / self._phaseStep
-                f_beams = np.zeros((self._beam_c.shape[0], 3), dtype=np.complex64)
-                for i in range(self._beam_c.shape[0]):
-                    # f_in: field of input beams
-                    f_in = np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
-                                     [sin(i * self._beam_a), cos(i * self._beam_a)]]) @ self.f_p
-
-                    # self.x, self.y= 1, 1
-
-                    # f_beams: field of interfered beams
-                    f_beams[i, :] = self._rotation(i * self._beam_a, theta=np.pi / 2) @ np.array(
-                        [[1, 0], [0, 1], [0, 0]]) @ self.f_p * np.exp(
-                        -1j * (self.ph * np.array([[cos(i * self._beam_a), -sin(i * self._beam_a)],
-                                                   [sin(i * self._beam_a), cos(i * self._beam_a)]]) @ np.array(
-                            [xr, yr]) @ np.array([self.x, self.y]) - i * _p1))
-                    if not hasattr(self, 'print'):
-                        print((xr, yr))
-                f_total = np.sum(f_beams, axis=0)
-                ill_intensity[p + self._phaseStep * a] = f_total @ np.conj(f_total)
-                # if not hasattr(self, 'print'):
-                # print('================')
-                # print(f_total)
-                # print(p + self._phaseStep * a)
-                # print(xr * self.x, yr * self.y, p * i)
-                #     # print(self._beam_c[i] @ np.array([xr, yr]))
-                #     print(ill_intensity.max())
-        if not hasattr(self, 'print'):
-            print(ill_intensity)
-        self.print = True
-        return ill_intensity
-
-    def _get_alpha(self):
-        # xc, yc - Cartesian coordinate system
-        xc = -1
-        yc = 0
-
-        k = 1
+    def _get_alpha_matrix(self):
+        k0 = 2 * np.pi * self.n / (self.ill_wavelength * 0.001)
         # S_beams: Jones vector; E_beams: exponential term; a beam could be expressed as S_beams @ E_beams
-        S_beams, E_beams = np.zeros((self._n_beams, self._phaseStep)), np.zeros((self._n_beams, self._phaseStep))
-        alpha = np.zeros((self._angleStep, self._phaseStep))
-        con = np.zeros((self._n_beams, self._phaseStep))  # constant alpha values
-        # one alpha value is consisted of constant and exponential terms
-        alpha_c, alpha_e = np.zeros(self._n_steps), np.zeros(self._n_steps)
+        S_beams, E_beams = np.complex64(np.zeros((self._n_beams, 3))), np.complex64(np.zeros((self._n_beams, 3)))
+        self.alpha_matrix = np.complex64(np.zeros((self._angleStep, self._phaseStep)))
+        con = np.complex64(np.zeros(self._n_beams))  # constant alpha values
 
-        alpha_band = np.zeros(self._n_bands)
+        alpha_band = np.complex64(np.zeros(self._angleStep, self._nbands))
 
         # get alpha values
         for a in range(self._angleStep):
-            angle = a * 2 * np.pi / self._angleStep
-            # xr, yr - Cartesian coordinate system with rotation of axes
-            xr = xc * np.cos(angle) + yc * np.sin(angle)
-            yr = -xc * np.sin(angle) + yc * np.cos(angle)
             for i in range(self._n_beams):
                 phi = i * self._beam_a
                 theta = np.pi / 2
-                _p = i * 2 * np.pi / self._phaseStep  # relative phases between beams
-                print('fhfffffffff')
+
+                # rotation matrix for the field travelling in z, not for illumination patterns.
+                # phi is the azimuthal angle (0 - 2pi). theta is the polar angle (0 - pi).
                 R = np.array([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]]) \
                     @ np.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
                     @ np.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
-                S_beams[i, :] = R @ np.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ (
-                            np.exp(1j * _p) * self.f_p)
-                E_beams[i, :] = np.exp(-1j * (np.array([self.x * xr, self.y *yr, 0]) @ R @ np.array([0, 0, k])))
-                con[i, :] = S_beams[i] @ np.conjugate(S_beams[i])
-                print('ssssssssss')
-            self.alpha[a, 0] = np.sum(con, axis=0)  # constant alpha values
+
+                S_beams[i, :] = R @ np.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ self.f_p
+
+                E_beams[i, :] = np.exp(-1j * (np.array([self.x, self.y, 0]) @ R @ np.array([0, 0, k0])))
+                con[i] = S_beams[i] @ np.conjugate(S_beams[i])
+            self.alpha_matrix[a, 0] = np.sum(con)  # constant alpha values
 
             b = 0
             for i in range(self._n_beams):
-                for j in range(self._n_beams-i-1):
-                    alpha_band[b] = S_beams[i] @ np.conj(S_beams[i + j + 1]) @ E_beams[i] @ np.conjugate(E_beams[i + j + 1])
+                for j in range(int(self._n_beams-i-1)):
+                    alpha_band[a, b] = S_beams[i] @ np.conj(S_beams[i + j + 1] * E_beams[i] * np.conjugate(E_beams[i + j + 1]))
                     b += 1
             for i in range((self._phaseStep-1)//2):
-                self.alpha[a, i + 1] = alpha_band[i]
-                self.alpha[a, i + 1 + b] = np.conjugate(alpha_band)
+                self.alpha_matrix[a, i + 1] = alpha_band[a, i]
+                self.alpha_matrix[a, i + 1 + b] = np.conjugate(alpha_band[a, i])
+
+    def _get_phases(self):
+        Phi0 = 2 * np.pi / self._phaseStep
+        self.phase_matrix = np.complex64(np.zeros((self._angleStep, self._phaseStep, self._phaseStep)))
+        n_eff_phases = int((self._phaseStep + 1) / 2)  # number of effective phases terms
+        for a in range(self._angleStep):
+            self.phase_matrix[a, :, 0] = 1
+            for i in range(self._phaseStep):
+                for j in range(1, n_eff_phases):
+                    self.phase_matrix[a, i, j] = np.exp(1j * (i + a * self._angleStep + 1) * (j + a * 2) * Phi0)
+                    self.phase_matrix[a, i, j + n_eff_phases - 1] = np.exp(-1j * (i + a * self._angleStep + 1) * (j + a * 2) * Phi0)
+                    print(i + a * self._angleStep + 1, (j + a * 2))
 
     def _ill_test(self, pstep, astep):
-        self._get_alpha()
-        return self.alpha[pstep, astep]
+        return self.phase_matrix[astep, pstep, :] @ self.alpha_matrix[astep, :]
+
 
 
