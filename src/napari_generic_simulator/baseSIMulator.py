@@ -173,6 +173,7 @@ class Base_simulator:
                     print(ill)
         if not hasattr(self, 'print'):
             print(self.alpha_matrix)
+            print(self.phase_matrix)
         self.print = True
 
 
