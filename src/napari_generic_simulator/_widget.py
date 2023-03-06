@@ -7,7 +7,8 @@ from magicgui import magicgui
 from enum import Enum
 from .baseSIMulator import import_cp, import_torch, torch_GPU
 from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
-from .conSIMulator import ConSim_simulator, Illumination
+from .conSIMulator import ConSim_simulator
+from .Illumination import ConIll, HexIll
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons
@@ -145,7 +146,7 @@ class PointCloud(QWidget):
 
     def cloud_widgets(self):
         """Creates a widget containing all small widgets"""
-        self.w_samples = RadioButtons(value=Samples.FILAMENTS, choices=Samples)
+        self.w_samples = RadioButtons(value=Samples.SPHEROID, choices=Samples)
 
         self.sph_points = SpinBox(value=200, step=50, label='spheroid_points')
         self.sph_rad = SpinBox(value=5, label='spheroid_radius (μm)')
@@ -230,7 +231,7 @@ class SIMulator(QWidget):
         self.N = SpinBox(value=128, name='spin', label='N pixel')
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
-        self.ill_NA = FloatSpinBox(value=1.0, name='spin', label='NA  illumination', min=0.0, step=0.1)
+        self.ill_NA = FloatSpinBox(value=1.33, name='spin', label='NA  illumination', min=0.0, step=0.1)
         self.det_NA = FloatSpinBox(value=1.0, name='spin', label='NA  detection', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
         self.ill_wavelength = SpinBox(value=500, label='λ  illumination(nm)', step=50)
@@ -259,22 +260,25 @@ class SIMulator(QWidget):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
         if self.SIM_mode.value == Sim_mode.HEXSIM:
             # self.sim = HexSim_simulator()
-            self.sim = Illumination()
+            self.sim = HexIll()
             nsteps = self.sim._phaseStep * self.sim._angleStep
         elif self.SIM_mode.value == Sim_mode.HEXSIM_RA:
             self.sim = RightHexSim_simulator()
             nsteps = self.sim._phaseStep * self.sim._angleStep
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             # self.sim = ConSim_simulator()
-            self.sim = Illumination()
+            self.sim = ConIll()
             nsteps = self.sim._phaseStep * self.sim._angleStep
 
         if self.Polarisation.value == Pol.IN_PLANE:
             self.sim.pol = 'in-plane'
+            self.sim.f_p = np.array([0, 1])
         elif self.Polarisation.value == Pol.AXIAL:
             self.sim.pol = 'axial'
+            self.sim.f_p = np.array([1, 0])
         elif self.Polarisation.value == Pol.CIRCULAR:
             self.sim.pol = 'circular'
+            self.sim.f_p = np.array([1, 1j] / np.sqrt(2))
 
         if self.Acceleration.value == Accel.NUMPY:
             self.sim.acc = 0
@@ -377,12 +381,9 @@ class SIMulator(QWidget):
                                                  'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
                                                  })
                 current_step = list(self._viewer.dims.current_step)
-                print(current_step)
-                print(data.shape)
                 for dim_idx in [-3, -2, -1]:
                     current_step[dim_idx] = data.shape[dim_idx] // 2
                 self._viewer.dims.current_step = current_step
-                print(current_step)
                 delattr(self, 'points')
 
             @thread_worker(connect={"returned": show_img})
@@ -400,6 +401,24 @@ class SIMulator(QWidget):
                 return self.sim.img
 
             _get_results()
+
+    def show_illumination(self, show_illumination: bool = False):
+        if hasattr(self, 'sim'):
+            if show_illumination:
+                if self.used_par_list != self.par_list():
+                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
+                else:
+                    try:
+                        self._viewer.add_image(self.sim.illumination_stack(),
+                                               scale=(self.zdrift.value * 0.001,
+                                                      self.pixel_size.value / self.magnification.value,
+                                                      self.pixel_size.value / self.magnification.value),
+                                               translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
+                                                          -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                          -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                               name='illumination')
+                    except Exception as e:
+                        print(str(e))
 
     def show_raw_img_sum(self, show_raw_img_sum: bool = False):
         if hasattr(self, 'sim'):
@@ -477,6 +496,7 @@ class SIMulator(QWidget):
         w_sum = magicgui(self.show_raw_img_sum, auto_call=True)
         w_psf = magicgui(self.show_psf, auto_call=True)
         w_otf = magicgui(self.show_otf, auto_call=True)
+        w_ill = magicgui(self.show_illumination, auto_call=True)
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select image layer'), w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, self.messageBox],
+        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select image layer'), w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, w_ill, self.messageBox],
                            labels=None)

@@ -53,6 +53,7 @@ class Base_simulator:
     spherical = 0
     sph_abb = 0
     add_error = True
+    f_p = None
 
     def initialise(self):
         if self.acc == 3:
@@ -70,7 +71,7 @@ class Base_simulator:
         self.res = self.det_wavelength / (2 * self.det_NA)
         oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
         self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
-        self.k0 = 2 * np.pi * self.n / self.det_wavelength
+        self.k0 = 2 * np.pi * self.n / (self.ill_wavelength * 0.001)
         self.kx, self.ky = self.xp.meshgrid(self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
                                        self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
@@ -97,8 +98,6 @@ class Base_simulator:
 
     def phase_tilts(self):
         """Generates phase tilts in frequency space"""
-
-        self._get_phases()
 
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
@@ -127,6 +126,8 @@ class Base_simulator:
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
+
+        self._get_alpha_constants()
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
@@ -144,11 +145,7 @@ class Base_simulator:
                     z = self.points[i, 2]
                     # get illumination from the child class
 
-                    self._get_alpha_matrix()
-
-
-                    if self.pol == 'axial':
-                        ill = self._ill_test(pstep, astep)
+                    ill = self._ill_test(self.x, self.y, pstep, astep)
 
                     # elif self.pol == 'circular':
                     #     ill = self._illCi(pstep, astep)
@@ -175,7 +172,6 @@ class Base_simulator:
             print(self.alpha_matrix)
             print(self.phase_matrix)
         self.print = True
-
 
         # for n in range(self._n_steps):
         #     self.points += self.drift * np.random.standard_normal(3) / 1000
@@ -508,3 +504,42 @@ class Base_simulator:
         tifffile.imwrite(stackfilename, self.img)
         elapsed_Brownian = time.time() - start_Brownian
         yield f'Finished, Phase tilts calculation time:  {elapsed_Brownian:3f}s'
+
+    def illumination_stack(self):
+        # Calculates 3d psf and otf before the image stack
+        # self.initialise()
+        print(f'allocating illumination stack: {(int(self.tpoints), self.N, self.N)}')
+
+        illumination = np.zeros((int(self.tpoints), self.N, self.N), dtype=np.float)
+        print(illumination.shape)
+        xyvals = (np.arange(self.N) - self.N / 2) * self.dx
+        # xarr, yarr = np.meshgrid(xyvals, xyvals, dtype=np.float)
+
+        start_time = time.time()
+        itcount = -1
+
+        for astep in range(self._angleStep):
+            for pstep in range(self._phaseStep):
+                print(f'astep = {astep}, pstep = {pstep}')
+                itcount += 1
+                for ny in range(self.N):
+                    for nx in range(self.N):
+                        # get illumination from the child class
+                        self.x = xyvals[nx]
+                        self.y = xyvals[ny]
+
+                        illumination[itcount, ny, nx] = self._ill_test(self.x, self.y, pstep, astep)
+
+        nsteps = self._angleStep * self._phaseStep
+
+        for i in range(1, int(self.tpoints) // nsteps):
+            for j in range(nsteps):
+                illumination[i * nsteps + j, :, :] = illumination[j, :, :]
+
+        self.elapsed_time = time.time() - start_time
+        print(f'Illumination calculation time:  {self.elapsed_time:3f}s')
+        print(illumination.shape)
+
+        return illumination
+
+
