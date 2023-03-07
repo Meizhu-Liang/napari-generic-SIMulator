@@ -1,3 +1,5 @@
+#!c:/Users/maan/Documents/HexSimProcessor/venv/Scripts/python.exe
+
 from src.napari_generic_simulator._widget import SIMulator, PointCloud
 
 if __name__ == '__main__':

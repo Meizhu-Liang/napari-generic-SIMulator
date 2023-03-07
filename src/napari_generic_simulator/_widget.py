@@ -307,8 +307,8 @@ class SIMulator(QWidget):
         self.sim.ill_NA = self.ill_NA.value
         self.sim.det_NA = self.det_NA.value
         self.sim.n = self.n.value
-        self.sim.ill_wavelength = self.ill_wavelength.value
-        self.sim.det_wavelength = self.det_wavelength.value
+        self.sim.ill_wavelength = self.ill_wavelength.value * 1e-3
+        self.sim.det_wavelength = self.det_wavelength.value * 1e-3
         self.sim.zrange = self.zrange.value
         self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
         self.tpoints.value = self.sim.tpoints

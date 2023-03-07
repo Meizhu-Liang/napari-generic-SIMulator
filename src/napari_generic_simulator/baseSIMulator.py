@@ -42,8 +42,8 @@ class Base_simulator:
     ill_NA = 0.75  # numerical aperture at illumination beams
     det_NA = 1.1  # numerical aperture at sample
     n = 1.33  # refractive index at sample
-    ill_wavelength = 520  # illumination wavelength in nm
-    det_wavelength = 570  # detection wavelength in nm
+    ill_wavelength = 520e-3  # illumination wavelength in um
+    det_wavelength = 570e-3  # detection wavelength in um
     zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
     dz = 0.4  # step size in axial direction of PSF
     fwhmz = 3.0  # FWHM of light sheet in z
@@ -60,8 +60,6 @@ class Base_simulator:
             self.xp = cp
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
-        self.ill_wavelength = self.ill_wavelength * 1e-3
-        self.det_wavelength = self.det_wavelength * 1e-3
         self.ph = 4 * np.pi * self.ill_NA / self.ill_wavelength
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
@@ -71,7 +69,7 @@ class Base_simulator:
         self.res = self.det_wavelength / (2 * self.det_NA)
         oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
         self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
-        self.k0 = 2 * np.pi * self.n / (self.ill_wavelength * 0.001)
+        self.k0 = 2 * np.pi * self.n / (self.ill_wavelength)
         self.kx, self.ky = self.xp.meshgrid(self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
                                        self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
