@@ -352,7 +352,7 @@ class SIMulator(QWidget):
             delattr(self, 'points')
         self.points = -layer.data[:, ::-1]
         self.npoints = self.points.shape[0]
-        self.messageBox.value = f'Selected image layer: {layer.name}'
+        self.messageBox.value = f'Selected sample layer: {layer.name}'
 
     def get_results(self):
         if not hasattr(self, 'points'):

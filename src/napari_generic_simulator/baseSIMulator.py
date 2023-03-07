@@ -132,38 +132,33 @@ class Base_simulator:
                 self.points[:, 0] += self.xdrift / 1000
                 self.points[:, 2] += self.zdrift / 1000
                 isteps = pstep + self._phaseStep * astep  # index of the steps
-                for i in range(self.npoints):
-                    prog = (100 * itcount) // total_its
-                    if prog > lastProg + 9:
-                        lastProg = prog
-                        yield f'Phase tilts calculation: {prog:.1f}% done'
-                    itcount += 1
-                    self.x = self.points[i, 0]
-                    self.y = self.points[i, 1]
-                    z = self.points[i, 2]
-                    # get illumination from the child class
+                prog = (100 * itcount) // total_its
+                if prog > lastProg + 9:
+                    lastProg = prog
+                    yield f'Phase tilts calculation: {prog:.1f}% done'
+                itcount += 1
+                self.x = self.points[:, 0]
+                self.y = self.points[:, 1]
+                z = self.points[:, 2]
+                # get illumination from the child class
 
-                    ill = self._ill_test(self.x, self.y, pstep, astep)
+                ill = self._ill_test(self.x, self.y, pstep, astep)
 
-                    # elif self.pol == 'circular':
-                    #     ill = self._illCi(pstep, astep)
-                    # else:
-                    #     ill = self._illIp(pstep, astep)
-                    if self.acc == 0:
-                        px = np.exp(1j * np.single(self.x * self.kxy))
-                        py = np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis]
-                        pz = (np.exp(1j * np.single(z * self.kz)) * ill)[:, np.newaxis, np.newaxis]
-                        self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                    elif self.acc == 3:
-                        px = cp.exp(1j * self.x * self.kxy)
-                        py = cp.exp(1j * self.y * self.kxy)[:, cp.newaxis]
-                        pz = (cp.exp(1j * z * self.kz) * ill)[:, cp.newaxis, cp.newaxis]
-                        self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                    else:
-                        px = torch.exp(1j * self.x * self.kxy)
-                        py = torch.exp(1j * self.y * self.kxy)
-                        pz = torch.exp(1j * z * self.kz) * ill
-                        self.phasetilts[isteps, :, :, :] += (px * py[..., None]) * pz[..., None, None]
+                if self.acc == 0:
+                    px = np.exp(1j * np.single(self.x * self.kxy))
+                    py = np.exp(1j * np.single(self.y * self.kxy))
+                    pz = np.exp(1j * np.single(z * self.kz)) * ill
+                    self.phasetilts[isteps, :, :, :] += (px * py) * pz
+                elif self.acc == 3:
+                    px = cp.exp(1j * self.x * self.kxy)
+                    py = cp.exp(1j * self.y * self.kxy)
+                    pz = cp.exp(1j * z * self.kz) * ill
+                    self.phasetilts[isteps, :, :, :] += (px * py) * pz
+                else:
+                    px = torch.exp(1j * self.x * self.kxy)
+                    py = torch.exp(1j * self.y * self.kxy)
+                    pz = torch.exp(1j * z * self.kz) * ill
+                    self.phasetilts[isteps, :, :, :] += px * py * pz
                 if not hasattr(self, 'print'):
                     print(ill)
         if not hasattr(self, 'print'):

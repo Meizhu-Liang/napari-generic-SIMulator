@@ -21,10 +21,8 @@ class Illumination(Base_simulator):
 
 
         # S_beams: Jones vector; E_beams: exponential term; a beam could be expressed as S_beams @ E_beams
-        self.S_beams, self.E_beams = np.complex64(np.zeros((self._angleStep, self._n_beams, 3))), np.complex64(
-            np.zeros((self._angleStep, self._n_beams, 3)))
-        self.E_beams = np.complex64(np.zeros((self._angleStep, self._n_beams, 3)))
-        self.alpha_band = np.complex64(np.zeros((self._angleStep, self._nbands)))
+        self.S_beams = np.complex64(np.zeros((self._angleStep, self._n_beams, 3)))
+
 
     def rotation(self, phi, theta):
         """Calculates the rotation matrix"""
@@ -35,7 +33,7 @@ class Illumination(Base_simulator):
 
     def _get_alpha_constants(self):
         self.theta = np.arcsin(self.ill_NA / self.n)
-        self.alpha_matrix = np.complex64(np.zeros((self._angleStep, self._phaseStep)))
+        self.alpha_matrix = np.complex64(np.zeros((self.npoints, self._angleStep, self._phaseStep)))
         con = np.complex64(np.zeros((self._angleStep, self._n_beams)))  # constant alpha values
 
         # get alpha values
@@ -47,21 +45,30 @@ class Illumination(Base_simulator):
 
                 self.S_beams[a, i, :] = self.rotation(phi, self.theta) @ np.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ self.f_p
                 con[a, i] = self.S_beams[a, i] @ np.conjugate(self.S_beams[a, i])
-            self.alpha_matrix[a, 0] = np.sum(con[a])  # constant alpha values
+            self.alpha_matrix[:, a, 0] = np.sum(con[a])  # constant alpha values
 
     def _get_alpha(self, x, y, astep):
+        self.E_beams = np.complex64(np.zeros((self.npoints, self._angleStep, self._n_beams, 3)))
+        self.alpha_band = np.complex64(np.zeros((self.npoints, self._angleStep, self._nbands)))
+        xyz = np.transpose(np.array([x, y, np.zeros(self.npoints)]))
+
         for i in range(self._n_beams):
             phi = i * self._beam_a + astep * 2 * np.pi / self._angleStep
-            self.E_beams[astep, i, :] = np.exp(-1j * (np.array([x, y, 0]) @ self.rotation(phi, self.theta) @ np.array([0, 0, self.k0])))
+            print('here!!!!!!!!!!!!!!!!!')
+            print((xyz @ self.rotation(phi, self.theta)).shape, np.transpose(np.array([0, 0, self.k0])).shape, (self.E_beams[:, astep, i, :]).shape)
+            self.E_beams[:, astep, i, :] = np.exp(-1j * (xyz @ self.rotation(phi, self.theta) @ np.transpose(np.array([0, 0, self.k0]))))
+            print('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
         b = 0
         for i in range(self._n_beams):
             for j in range(int(self._n_beams - i - 1)):
-                self.alpha_band[astep, b] = self.S_beams[astep, i] @ np.conj(
-                    self.S_beams[astep, i + j + 1] * self.E_beams[astep, i] * np.conjugate(self.E_beams[astep, i + j + 1]))
+
+                self.alpha_band[:, astep, b] = self.S_beams[astep, i] @ np.conj(
+                    self.S_beams[astep, i + j + 1] * self.E_beams[:, astep, i] * np.conjugate(self.E_beams[:, astep, i + j + 1]))
+                print('aaaaaaaaaaaaaaaaaaaaaaaaaa')
                 b += 1
         for i in range((self._phaseStep - 1) // 2):
-            self.alpha_matrix[astep, i + 1] = self.alpha_band[astep, i]
-            self.alpha_matrix[astep, i + 1 + b] = np.conjugate(self.alpha_band[astep, i])
+            self.alpha_matrix[:, astep, i + 1] = self.alpha_band[:, astep, i]
+            self.alpha_matrix[:, astep, i + 1 + b] = np.conjugate(self.alpha_band[:, astep, i])
         return self.alpha_matrix
 
     def _get_phases(self, pstep):
@@ -73,7 +80,7 @@ class Illumination(Base_simulator):
         return self.phase_matrix
 
     def _ill_test(self, x, y, pstep, astep):
-        return self._get_phases(pstep) @ self._get_alpha(x, y, astep)[astep, :]
+        return self._get_phases(pstep) @ self._get_alpha(x, y, astep)[:, astep, :]
 
 
 class ConIll(Illumination):
