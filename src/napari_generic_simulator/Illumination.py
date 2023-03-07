@@ -23,7 +23,7 @@ class Illumination(Base_simulator):
         # S_beams: Jones vector; E_beams: exponential term; a beam could be expressed as S_beams @ E_beams
         self.S_beams, self.E_beams = np.complex64(np.zeros((self._angleStep, self._n_beams, 3))), np.complex64(
             np.zeros((self._angleStep, self._n_beams, 3)))
-        self.E_beams = np.complex64(np.zeros((self._angleStep, self._n_beams, 3)))
+        self.E_beams = np.complex64(np.zeros((self._angleStep, self._n_beams)))
         self.alpha_band = np.complex64(np.zeros((self._angleStep, self._nbands)))
 
     def rotation(self, phi, theta):
@@ -52,7 +52,7 @@ class Illumination(Base_simulator):
     def _get_alpha(self, x, y, astep):
         for i in range(self._n_beams):
             phi = i * self._beam_a + astep * 2 * np.pi / self._angleStep
-            self.E_beams[astep, i, :] = np.exp(-1j * (np.array([x, y, 0]) @ self.rotation(phi, self.theta) @ np.array([0, 0, self.k0])))
+            self.E_beams[astep, i] = np.exp(-1j * (np.array([x, y, 0]) @ self.rotation(phi, self.theta) @ np.array([0, 0, self.k0])))
         b = 0
         for i in range(self._n_beams):
             for j in range(int(self._n_beams - i - 1)):
