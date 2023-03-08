@@ -20,21 +20,22 @@ class Illumination(Base_simulator):
         self._beam_a = 2 * np.pi / self._n_beams  # angle between each two beams
 
 
-        # S_beams: Jones vector; E_beams: exponential term; a beam could be expressed as S_beams @ E_beams
-        self.S_beams = np.complex64(np.zeros((self._angleStep, self._n_beams, 3)))
+
 
 
     def rotation(self, phi, theta):
         """Calculates the rotation matrix"""
-        R = np.array([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]]) \
-                 @ np.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
-                 @ np.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
+        R = self.xp.array([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]]) \
+                 @ self.xp.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
+                 @ self.xp.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
         return R
 
     def _get_alpha_constants(self):
+        # S_beams: Jones vector; E_beams: exponential term; a beam could be expressed as S_beams @ E_beams
+        self.S_beams = self.xp.zeros((self._angleStep, self._n_beams, 3), dtype=self.xp.complex64)
         self.theta = np.arcsin(self.ill_NA / self.n)
-        self.alpha_matrix = np.complex64(np.zeros((self.npoints, self._angleStep, self._phaseStep)))
-        con = np.complex64(np.zeros((self._angleStep, self._n_beams)))  # constant alpha values
+        self.alpha_matrix = self.xp.zeros((self.npoints, self._angleStep, self._phaseStep), dtype=self.xp.complex64)
+        con = self.xp.zeros((self._angleStep, self._n_beams), dtype=self.xp.complex64)  # constant alpha values
 
         # get alpha values
         for a in range(self._angleStep):
@@ -43,44 +44,43 @@ class Illumination(Base_simulator):
                 # rotation matrix for the field travelling in z, not for illumination patterns.
                 # phi is the azimuthal angle (0 - 2pi). theta is the polar angle (0 - pi).
 
-                self.S_beams[a, i, :] = self.rotation(phi, self.theta) @ np.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ self.f_p
-                con[a, i] = self.S_beams[a, i] @ np.conjugate(self.S_beams[a, i])
-            self.alpha_matrix[:, a, 0] = np.sum(con[a])  # constant alpha values
+                self.S_beams[a, i, :] = self.rotation(phi, self.theta) @ self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ self.xp.array(self.f_p)
+                con[a, i] = self.S_beams[a, i] @ self.xp.conjugate(self.S_beams[a, i])
+            self.alpha_matrix[:, a, 0] = self.xp.sum(con[a])  # constant alpha values
 
     def _get_alpha(self, x, y, astep):
-        self.E_beams = np.complex64(np.zeros((self.npoints, self._angleStep, self._n_beams, 3)))
-        self.alpha_band = np.complex64(np.zeros((self.npoints, self._angleStep, self._nbands)))
-        xyz = np.transpose(np.array([x, y, np.zeros(self.npoints)]))
-
+        self.E_beams = self.xp.zeros((self.npoints, self._angleStep, self._n_beams), dtype=self.xp.complex64)
+        self.alpha_band = self.xp.zeros((self.npoints, self._angleStep, self._nbands), dtype=self.xp.complex64)
+        if self.acc == 3:
+            xyz = self.xp.transpose(self.xp.stack([x, y, self.xp.zeros(self.npoints)]))
+        else:
+            xyz = self.xp.transpose(self.xp.array([x, y, self.xp.zeros(self.npoints)]))
         for i in range(self._n_beams):
             phi = i * self._beam_a + astep * 2 * np.pi / self._angleStep
-            print('here!!!!!!!!!!!!!!!!!')
-            print((xyz @ self.rotation(phi, self.theta)).shape, np.transpose(np.array([0, 0, self.k0])).shape, (self.E_beams[:, astep, i, :]).shape)
-            self.E_beams[:, astep, i, :] = np.exp(-1j * (xyz @ self.rotation(phi, self.theta) @ np.transpose(np.array([0, 0, self.k0]))))
-            print('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+            self.E_beams[:, astep, i] = self.xp.exp(-1j * (xyz @ self.rotation(phi, self.theta) @ self.xp.transpose(self.xp.array([0, 0, self.k0]))))
         b = 0
         for i in range(self._n_beams):
             for j in range(int(self._n_beams - i - 1)):
-
-                self.alpha_band[:, astep, b] = self.S_beams[astep, i] @ np.conj(
-                    self.S_beams[astep, i + j + 1] * self.E_beams[:, astep, i] * np.conjugate(self.E_beams[:, astep, i + j + 1]))
-                print('aaaaaaaaaaaaaaaaaaaaaaaaaa')
+                self.alpha_band[:, astep, b] = self.S_beams[astep, i] @ self.xp.conj(
+                    self.S_beams[astep, i + j + 1]) * self.E_beams[:, astep, i] * self.xp.conjugate(self.E_beams[:, astep, i + j + 1])
                 b += 1
         for i in range((self._phaseStep - 1) // 2):
             self.alpha_matrix[:, astep, i + 1] = self.alpha_band[:, astep, i]
-            self.alpha_matrix[:, astep, i + 1 + b] = np.conjugate(self.alpha_band[:, astep, i])
+            self.alpha_matrix[:, astep, i + 1 + b] = self.xp.conjugate(self.alpha_band[:, astep, i])
         return self.alpha_matrix
+
 
     def _get_phases(self, pstep):
         Phi0 = 2 * np.pi / self._phaseStep
-        self.phase_matrix = np.complex64(np.ones(int(self._nbands / self._angleStep * 2 + 1)))
+        self.phase_matrix = self.xp.ones(int(self._nbands / self._angleStep * 2 + 1), dtype=self.xp.complex64)
         for i in range(int(self._nbands / self._angleStep)):
-            self.phase_matrix[i+1] = np.exp(1j * (pstep * (i + 1) * Phi0))
-            self.phase_matrix[int(i + 1 + self._nbands / self._angleStep)] = np.exp(-1j * (pstep * (i + 1) * Phi0))
+            self.phase_matrix[i+1] = self.xp.exp(1j * (pstep * (i + 1) * Phi0))
+            self.phase_matrix[int(i + 1 + self._nbands / self._angleStep)] = self.xp.exp(-1j * (pstep * (i + 1) * Phi0))
         return self.phase_matrix
 
+
     def _ill_test(self, x, y, pstep, astep):
-        return self._get_phases(pstep) @ self._get_alpha(x, y, astep)[:, astep, :]
+        return self._get_alpha(x, y, astep)[:, astep, :] @ self._get_phases(pstep)
 
 
 class ConIll(Illumination):

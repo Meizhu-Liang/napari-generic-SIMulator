@@ -231,10 +231,10 @@ class SIMulator(QWidget):
         self.N = SpinBox(value=128, name='spin', label='N pixel')
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
-        self.ill_NA = FloatSpinBox(value=1.33, name='spin', label='NA  illumination', min=0.0, step=0.1)
+        self.ill_NA = FloatSpinBox(value=1, name='spin', label='NA  illumination', min=0.0, step=0.1)
         self.det_NA = FloatSpinBox(value=1.0, name='spin', label='NA  detection', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
-        self.ill_wavelength = SpinBox(value=500, label='λ  illumination(nm)', step=50)
+        self.ill_wavelength = SpinBox(value=540, label='λ  illumination(nm)', step=50)
         self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=50)
 
         self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
@@ -272,13 +272,13 @@ class SIMulator(QWidget):
 
         if self.Polarisation.value == Pol.IN_PLANE:
             self.sim.pol = 'in-plane'
-            self.sim.f_p = np.array([0, 1])
+            self.sim.f_p = [0, 1]
         elif self.Polarisation.value == Pol.AXIAL:
             self.sim.pol = 'axial'
-            self.sim.f_p = np.array([1, 0])
+            self.sim.f_p = [1, 0]
         elif self.Polarisation.value == Pol.CIRCULAR:
             self.sim.pol = 'circular'
-            self.sim.f_p = np.array([1, 1j] / np.sqrt(2))
+            self.sim.f_p = [1, 1j] / np.sqrt(2)
 
         if self.Acceleration.value == Accel.NUMPY:
             self.sim.acc = 0
@@ -498,5 +498,5 @@ class SIMulator(QWidget):
         w_otf = magicgui(self.show_otf, auto_call=True)
         w_ill = magicgui(self.show_illumination, auto_call=True)
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select image layer'), w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, w_ill, self.messageBox],
+        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select sample layer'), w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, w_ill, self.messageBox],
                            labels=None)

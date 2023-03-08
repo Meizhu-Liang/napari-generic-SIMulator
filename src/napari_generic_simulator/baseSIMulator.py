@@ -100,22 +100,17 @@ class Base_simulator:
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
-        if self.acc == 0:
-            self.kxy = np.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=np.single)
-            self.kz = np.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=np.single)
-        elif self.acc == 3:
-            self.kxy = cp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=cp.single)
-            self.kz = cp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=cp.single)
+        if (self.acc == 0) or (self.acc == 3):
+            self.kxy = self.xp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=self.xp.single)
+            self.kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
         else:
             self.kxy = torch.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy,
                                     dtype=torch.float32, device=self._tdev)
             self.kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
                                    dtype=torch.float32, device=self._tdev)
 
-        if self.acc == 0:
-            self.phasetilts = np.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
-        elif self.acc == 3:
-            self.phasetilts = cp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=cp.complex64)
+        if (self.acc == 0) or (self.acc == 3):
+            self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
         else:
             self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
                                           device=self._tdev)
@@ -126,6 +121,8 @@ class Base_simulator:
         lastProg = 0
 
         self._get_alpha_constants()
+
+
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
@@ -137,34 +134,23 @@ class Base_simulator:
                     lastProg = prog
                     yield f'Phase tilts calculation: {prog:.1f}% done'
                 itcount += 1
-                self.x = self.points[:, 0]
-                self.y = self.points[:, 1]
-                z = self.points[:, 2]
-                # get illumination from the child class
 
+                self.x = self.xp.array(self.points[:, 0])
+                self.y = self.xp.array(self.points[:, 1])
+                z = self.xp.array(self.points[:, 2])
+                # get illumination from the child class
                 ill = self._ill_test(self.x, self.y, pstep, astep)
 
-                if self.acc == 0:
-                    px = np.exp(1j * np.single(self.x * self.kxy))
-                    py = np.exp(1j * np.single(self.y * self.kxy))
-                    pz = np.exp(1j * np.single(z * self.kz)) * ill
-                    self.phasetilts[isteps, :, :, :] += (px * py) * pz
-                elif self.acc == 3:
-                    px = cp.exp(1j * self.x * self.kxy)
-                    py = cp.exp(1j * self.y * self.kxy)
-                    pz = cp.exp(1j * z * self.kz) * ill
-                    self.phasetilts[isteps, :, :, :] += (px * py) * pz
+                if (self.acc == 0) or (self.acc == 3):
+                    px = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.x[:, self.xp.newaxis], dtype=self.xp.single))[:, self.xp.newaxis, :]
+                    py = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.y[:, self.xp.newaxis], dtype=self.xp.single))[:, :, self.xp.newaxis]
+                    pz = self.xp.exp(1j * self.xp.array(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], dtype=self.xp.single)) * ill[:, self.xp.newaxis]
+                    self.phasetilts[isteps, :, :, :] = self.xp.sum((px * py)[:, self.xp.newaxis, :, :] * pz[:, :, self.xp.newaxis, self.xp.newaxis], axis=0)
                 else:
                     px = torch.exp(1j * self.x * self.kxy)
                     py = torch.exp(1j * self.y * self.kxy)
-                    pz = torch.exp(1j * z * self.kz) * ill
+                    pz = torch.exp(1j * z * self.kz) * torch.tensor(ill)
                     self.phasetilts[isteps, :, :, :] += px * py * pz
-                if not hasattr(self, 'print'):
-                    print(ill)
-        if not hasattr(self, 'print'):
-            print(self.alpha_matrix)
-            print(self.phase_matrix)
-        self.print = True
 
         # for n in range(self._n_steps):
         #     self.points += self.drift * np.random.standard_normal(3) / 1000
@@ -327,89 +313,6 @@ class Base_simulator:
         psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
         return psf
 
-    # def raw_image_stack(self):
-    #     # Calculates point cloud, phase tilts, 3d psf and otf before the image stack.
-    #     self.initialise()
-    #     self.drift = 0.0  # no random walk using this method
-    #     self.point_cloud()
-    #     yield "Point cloud calculated"
-    #
-    #     self._nsteps = self._phaseStep * self._angleStep
-    #     for msg in self.phase_tilts():
-    #         yield msg
-    #     if self.psf_calc == 'vector':
-    #         psf = self.get_vector_psf()
-    #     else:
-    #         psf = self.get_scalar_psf()
-    #     self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
-    #     if self.acc == 3:
-    #         self.psf_z0 = cp.asnumpy(self.psf_z0)
-    #     yield "psf calculated"
-    #
-    #     # Calculating 3d otf
-    #     otf = self.xp.fft.fftn(psf)
-    #     aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
-    #     if self.acc == 3:
-    #         aotf = cp.asnumpy(aotf)
-    #     m = max(aotf.flatten())
-    #     aotf_z = []
-    #     if self.acc == 3:
-    #         aotf = cp.array(aotf)
-    #     for x in range(self.Nzn):
-    #         aotf_z.append(self.xp.sum(aotf[x]))
-    #     self.aotf_x = self.xp.log(
-    #         aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
-    #     if self.acc == 3:
-    #         self.aotf_x = cp.asnumpy(self.aotf_x)
-    #     # aotf_x is the same as aotf_y
-    #     # self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
-    #     yield "3d otf calculated"
-    #
-    #     if (self.acc == 0) | (self.acc == 3):
-    #         img = self.xp.zeros((self.Nz * self._nsteps, self.N, self.N), dtype=self.xp.single)
-    #     else:
-    #         img = torch.empty((self.Nz * self._nsteps, self.N, self.N), dtype=torch.float, device=self._tdev)
-    #
-    #     for i in range(self._nsteps):
-    #         if (self.acc == 0) | (self.acc == 3):
-    #             ootf = self.xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
-    #             img[self.xp.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = self.xp.abs(
-    #                 self.xp.fft.ifftn(ootf, (self.Nz, self.N, self.N)))
-    #         else:
-    #             ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev), ) * self.phasetilts[i, :, :, :]
-    #             img[torch.arange(i, self.Nz * self._nsteps, self._nsteps), :, :] = (torch.abs(
-    #                 torch.fft.ifftn(ootf, (self.Nz, self.N, self.N)))).to(torch.float)
-    #     # OK to use abs here as signal should be all positive.
-    #     # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
-    #     # But should reduction in sampling be allowed here(Nz < Nzn)?
-    #
-    #     stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
-    #     if self.acc == 0:
-    #         # raw image stack
-    #         # raw image sum along z axis
-    #         self.img_sum_z = np.sum(img, axis=0)
-    #         # raw image sum along x (or y) axis
-    #         self.img_sum_x = np.sum(img, axis=1)
-    #         self.img = img
-    #     elif self.acc == 1:
-    #         self.img_sum_z = (torch.sum(img, axis=0)).numpy()
-    #         self.img_sum_x = (torch.sum(img, axis=1)).numpy()
-    #         self.img = img.numpy()
-    #     elif self.acc == 2:
-    #         self.img_sum_z = (torch.sum(img, axis=0)).detach().cpu().numpy()
-    #         self.img_sum_x = (torch.sum(img, axis=1)).detach().cpu().numpy()
-    #         self.img = img.detach().cpu().numpy()
-    #     elif self.acc == 3:
-    #         self.img_sum_z = cp.asnumpy(cp.sum(img, axis=0))
-    #         self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
-    #         self.img = cp.asnumpy(img)
-    #
-    #     # Save generated images
-    #     tifffile.imwrite(stackfilename, self.img)
-    #     yield "file saved"
-    #
-    #     yield f'Finished, Phase tilts calculation time:  {self.elapsed_time:3f}s'
-
     def raw_image_stack_brownian(self):
         # Calculates 3d psf and otf before the image stack
         self.initialise()
@@ -503,10 +406,11 @@ class Base_simulator:
         # self.initialise()
         print(f'allocating illumination stack: {(int(self.tpoints), self.N, self.N)}')
 
-        illumination = np.zeros((int(self.tpoints), self.N, self.N), dtype=np.float)
-        print(illumination.shape)
-        xyvals = (np.arange(self.N) - self.N / 2) * self.dx
-        # xarr, yarr = np.meshgrid(xyvals, xyvals, dtype=np.float)
+        self.npoints = self.N
+        self._get_alpha_constants()
+        illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
+        xyvals = self.xp.transpose((self.xp.arange(self.N) - self.N / 2) * self.dx)
+        # xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
 
         start_time = time.time()
         itcount = -1
@@ -515,24 +419,21 @@ class Base_simulator:
             for pstep in range(self._phaseStep):
                 print(f'astep = {astep}, pstep = {pstep}')
                 itcount += 1
-                for ny in range(self.N):
-                    for nx in range(self.N):
-                        # get illumination from the child class
-                        self.x = xyvals[nx]
-                        self.y = xyvals[ny]
+                illumination[itcount, :, :] = self._ill_test(xyvals, xyvals, pstep, astep)
 
-                        illumination[itcount, ny, nx] = self._ill_test(self.x, self.y, pstep, astep)
+        for i in range(1, int(self.tpoints) // self._nsteps):
+            for j in range(self._nsteps):
+                illumination[i * self._nsteps + j, :, :] = illumination[j, :, :]
 
-        nsteps = self._angleStep * self._phaseStep
+        elapsed_time = time.time() - start_time
+        print(f'Illumination calculation time:  {elapsed_time:3f}s')
 
-        for i in range(1, int(self.tpoints) // nsteps):
-            for j in range(nsteps):
-                illumination[i * nsteps + j, :, :] = illumination[j, :, :]
+        if self.acc == 0:
+            return illumination
+        elif self.acc == 2:
+            return illumination.detach().cpu().numpy()
+        elif self.acc == 3:
+            return cp.asnumpy(illumination)
 
-        self.elapsed_time = time.time() - start_time
-        print(f'Illumination calculation time:  {self.elapsed_time:3f}s')
-        print(illumination.shape)
-
-        return illumination
 
 
