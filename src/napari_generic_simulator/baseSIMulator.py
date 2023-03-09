@@ -145,7 +145,8 @@ class Base_simulator:
                     px = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.x[:, self.xp.newaxis], dtype=self.xp.single))[:, self.xp.newaxis, :]
                     py = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.y[:, self.xp.newaxis], dtype=self.xp.single))[:, :, self.xp.newaxis]
                     pz = self.xp.exp(1j * self.xp.array(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], dtype=self.xp.single)) * ill[:, self.xp.newaxis]
-                    self.phasetilts[isteps, :, :, :] = self.xp.sum((px * py)[:, self.xp.newaxis, :, :] * pz[:, :, self.xp.newaxis, self.xp.newaxis], axis=0)
+                    # self.phasetilts[isteps, :, :, :] = self.xp.sum((px * py)[:, self.xp.newaxis, :, :] * pz[:, :, self.xp.newaxis, self.xp.newaxis], axis=0)
+                    self.phasetilts[isteps, :, :, :] = self.xp.einsum('i...,i...', (px * py)[:, self.xp.newaxis, :, :], pz[:, :, self.xp.newaxis, self.xp.newaxis])
                 else:
                     px = torch.exp(1j * self.x * self.kxy)
                     py = torch.exp(1j * self.y * self.kxy)
@@ -406,11 +407,16 @@ class Base_simulator:
         # self.initialise()
         print(f'allocating illumination stack: {(int(self.tpoints), self.N, self.N)}')
 
-        self.npoints = self.N
-        self._get_alpha_constants()
+
+        # illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
+
         illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
-        xyvals = self.xp.transpose((self.xp.arange(self.N) - self.N / 2) * self.dx)
-        # xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
+        xyvals = (self.xp.arange(self.N) - self.N / 2) * self.dx
+        xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
+        xarr_l, yarr_l = self.xp.array(xarr).flatten(), self.xp.array(yarr).flatten()
+
+        self.npoints = xarr_l.shape[0]
+        self._get_alpha_constants()
 
         start_time = time.time()
         itcount = -1
@@ -419,7 +425,8 @@ class Base_simulator:
             for pstep in range(self._phaseStep):
                 print(f'astep = {astep}, pstep = {pstep}')
                 itcount += 1
-                illumination[itcount, :, :] = self._ill_test(xyvals, xyvals, pstep, astep)
+                ill_1d = self._ill_test(xarr_l, yarr_l, pstep, astep)
+                illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
 
         for i in range(1, int(self.tpoints) // self._nsteps):
             for j in range(self._nsteps):
