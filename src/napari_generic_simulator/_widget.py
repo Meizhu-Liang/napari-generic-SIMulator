@@ -8,7 +8,7 @@ from enum import Enum
 from .baseSIMulator import import_cp, import_torch, torch_GPU
 from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from .conSIMulator import ConSim_simulator
-from .Illumination import ConIll, HexIll
+from .Illumination import ConIll, HexIll, RaHexIll
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons
@@ -263,7 +263,7 @@ class SIMulator(QWidget):
             self.sim = HexIll()
             nsteps = self.sim._phaseStep * self.sim._angleStep
         elif self.SIM_mode.value == Sim_mode.HEXSIM_RA:
-            self.sim = RightHexSim_simulator()
+            self.sim = RaHexIll()
             nsteps = self.sim._phaseStep * self.sim._angleStep
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             # self.sim = ConSim_simulator()

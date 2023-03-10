@@ -18,8 +18,6 @@ class Illumination(Base_simulator):
     def __init__(self):
         super().__init__()
         self._nsteps = int(self._phaseStep * self._angleStep)
-        self._nbands = int((self._nsteps - self._angleStep) / 2)
-        self._beam_a = 2 * np.pi / self._n_beams  # angle between each two beams
 
     def rotation(self, phi, theta):
         """Calculates the rotation matrix"""
@@ -39,7 +37,7 @@ class Illumination(Base_simulator):
         # S_beams: Jones vector; E_beams: exponential term; a beam could be expressed as S_beams @ E_beams
         if (self.acc == 0) or (self.acc == 3):
             self.S_beams = self.xp.zeros((self._angleStep, self._n_beams, 3), dtype=self.xp.complex64)
-            self.alpha_matrix = self.xp.zeros((self.npoints, self._angleStep, self._phaseStep), dtype=self.xp.complex64)
+            self.alpha_matrix = self.xp.zeros((self.npoints, self._angleStep, int(self._nbands / self._angleStep * 2 + 1)), dtype=self.xp.complex64)
             con = self.xp.zeros((self._angleStep, self._n_beams), dtype=self.xp.complex64)  # constant alpha values
             f_in = self.xp.array(self.f_p)  # input field
 
@@ -55,7 +53,7 @@ class Illumination(Base_simulator):
                 self.alpha_matrix[:, a, 0] = self.xp.sum(con[a])
         else:
             self.S_beams = torch.zeros(self._angleStep, self._n_beams, 3, dtype=torch.complex64, device=self._tdev)
-            self.alpha_matrix = torch.zeros(self.npoints, self._angleStep, self._phaseStep, dtype=torch.complex64,
+            self.alpha_matrix = torch.zeros(self.npoints, self._angleStep, int(self._nbands / self._angleStep * 2 + 1), dtype=torch.complex64,
                                             device=self._tdev)
             con = torch.zeros(self._angleStep, self._n_beams, dtype=torch.complex64,
                               device=self._tdev)  # constant alpha values
@@ -72,6 +70,7 @@ class Illumination(Base_simulator):
                 # constant alpha values
                 self.alpha_matrix[:, a, 0] = torch.sum(con[a])
 
+
     def _get_alpha(self, x, y, astep):
         if (self.acc == 0) or (self.acc == 3):
             self.E_beams = self.xp.zeros((self.npoints, self._angleStep, self._n_beams), dtype=self.xp.complex64)
@@ -83,6 +82,7 @@ class Illumination(Base_simulator):
                 self.E_beams[:, astep, i] = self.xp.exp(
                     -1j * (xyz @ self.rotation(phi, self.theta) @
                            self.xp.array([0, 0, self.k0])))
+
             b = 0
             for i in range(self._n_beams):
                 for j in range(int(self._n_beams - i - 1)):
@@ -90,7 +90,8 @@ class Illumination(Base_simulator):
                         self.S_beams[astep, i + j + 1]) * self.E_beams[:, astep, i] * self.xp.conjugate(
                         self.E_beams[:, astep, i + j + 1])
                     b += 1
-            for i in range((self._phaseStep - 1) // 2):
+
+            for i in range(int((self._phaseStep - 1) / 2)):
                 self.alpha_matrix[:, astep, i + 1] = self.alpha_band[:, astep, i]
                 self.alpha_matrix[:, astep, i + 1 + b] = self.xp.conjugate(self.alpha_band[:, astep, i])
         else:
@@ -114,7 +115,6 @@ class Illumination(Base_simulator):
                         self.S_beams[astep, i + j + 1]) * self.E_beams[:, astep, i] * torch.conj(
                         self.E_beams[:, astep, i + j + 1])
                     b += 1
-
             for i in range((self._phaseStep - 1) // 2):
                 self.alpha_matrix[:, astep, i + 1] = self.alpha_band[:, astep, i]
                 self.alpha_matrix[:, astep, i + 1 + b] = torch.conj(self.alpha_band[:, astep, i])
@@ -129,6 +129,8 @@ class ConIll(Illumination):
         self._phaseStep = 3
         self._angleStep = 3
         self._n_beams = 2
+        self._beam_a = 2 * np.pi / self._n_beams  # angle between each two beams
+        self._nbands = 3
         super().__init__()
 
         def _get_phases():
@@ -138,9 +140,9 @@ class ConIll(Illumination):
                                              dtype=self.xp.complex64)
             for p in range(self._phaseStep):
                 for i in range(int(self._nbands / self._angleStep)):
-                    self.phase_matrix[p, i + 1] = self.xp.exp(1j * (p * (i + 1) * Phi0))
+                    self.phase_matrix[p, i + 1] = self.xp.exp(-1j * (p * (i + 1) * Phi0))
                     self.phase_matrix[p, int(i + 1 + self._nbands / self._angleStep)] = self.xp.exp(
-                        -1j * (p * (i + 1) * Phi0))
+                        1j * (p * (i + 1) * Phi0))
         _get_phases()
 
 
@@ -149,6 +151,8 @@ class HexIll(Illumination):
         self._phaseStep = 7
         self._angleStep = 1
         self._n_beams = 3
+        self._beam_a = 2 * np.pi / self._n_beams  # angle between each two beams
+        self._nbands = 3
         super().__init__()
 
         def _get_phases():
@@ -159,7 +163,27 @@ class HexIll(Illumination):
             for p in range(self._phaseStep):
                 for i in range(int(self._nbands / self._angleStep)):
                     self.phase_matrix[p, i + 1] = self.xp.exp(1j * (p * (i + 1) * Phi0))
-                    self.phase_matrix[p, int(i + 1 + self._nbands / self._angleStep)] = self.xp.exp(
-                        -1j * (p * (i + 1) * Phi0))
+                    self.phase_matrix[p, int(i + 1 + self._nbands / self._angleStep)] = self.xp.exp(-1j * (p * (i + 1) * Phi0))
         _get_phases()
+
+class RaHexIll(Illumination):
+    def __init__(self):
+        self._phaseStep = 5
+        self._angleStep = 1
+        self._n_beams = 3
+        self._beam_a = np.pi / 2  # angle between beam1 and beam2, beam2 and beam3
+        self._nbands = 3
+        super().__init__()
+
+        def _get_phases():
+            # phase matrix
+            Phi0 = 2 * np.pi / self._phaseStep
+            self.phase_matrix = self.xp.ones((self._phaseStep, int(self._nbands / self._angleStep * 2 + 1)),
+                                             dtype=self.xp.complex64)
+            for p in range(self._phaseStep):
+                for i in range(int(self._nbands / self._angleStep)):
+                    self.phase_matrix[p, i + 1] = self.xp.exp(1j * (p * (i + 1) * Phi0))
+                    self.phase_matrix[p, int(i + 1 + self._nbands / self._angleStep)] = self.xp.exp(-1j * (p * (i + 1) * Phi0))
+        _get_phases()
+
 
