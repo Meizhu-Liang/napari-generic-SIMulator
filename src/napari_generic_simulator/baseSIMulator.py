@@ -120,6 +120,11 @@ class Base_simulator:
         lastProg = 0
 
         self._get_alpha_constants()
+        if (self.acc == 1) or (self.acc == 2):
+            self.phase_matrix = torch.tensor(self.phase_matrix, device=self._tdev)
+        if self.acc == 3:
+            self.phase_matrix = cp.array(self.phase_matrix)
+
 
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
@@ -404,9 +409,6 @@ class Base_simulator:
                     illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
                 else:
                     illumination[itcount, :, :] = torch.reshape(ill_1d, (self.N, self.N))
-        # print(self.E_beams[1])
-        # print(self.alpha_matrix[2,2])
-        # print(self.ttt)
 
         for i in range(1, int(self.tpoints) // self._nsteps):
             for j in range(self._nsteps):
