@@ -110,18 +110,16 @@ class Base_simulator:
                                    dtype=torch.float32, device=self._tdev)
 
         if (self.acc == 0) or (self.acc == 3):
-            self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=np.complex64)
+            self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
         else:
-            self.phasetilts = torch.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=torch.complex64,
+            self.phasetilts = torch.zeros(self._nsteps, self.Nzn, self.Nn, self.Nn, dtype=torch.complex64,
                                           device=self._tdev)
-
         start_time = time.time()
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
 
         self._get_alpha_constants()
-
 
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
@@ -135,59 +133,37 @@ class Base_simulator:
                     yield f'Phase tilts calculation: {prog:.1f}% done'
                 itcount += 1
 
-                self.x = self.xp.array(self.points[:, 0])
-                self.y = self.xp.array(self.points[:, 1])
-                z = self.xp.array(self.points[:, 2])
+                if (self.acc == 0) or (self.acc == 3):
+                    self.x = self.xp.array(self.points[:, 0])
+                    self.y = self.xp.array(self.points[:, 1])
+                    z = self.xp.array(self.points[:, 2])
+                else:
+
+                    self.x = torch.tensor(self.points[:, 0], device=self._tdev)
+                    self.y = torch.tensor(self.points[:, 1], device=self._tdev)
+                    z = torch.tensor(self.points[:, 2], device=self._tdev)
+
                 # get illumination from the child class
                 ill = self._ill_test(self.x, self.y, pstep, astep)
 
                 if (self.acc == 0) or (self.acc == 3):
-                    px = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.x[:, self.xp.newaxis], dtype=self.xp.single))[:, self.xp.newaxis, :]
-                    py = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.y[:, self.xp.newaxis], dtype=self.xp.single))[:, :, self.xp.newaxis]
-                    pz = self.xp.exp(1j * self.xp.array(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], dtype=self.xp.single)) * ill[:, self.xp.newaxis]
+                    px = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.x[:, self.xp.newaxis],
+                                                        dtype=self.xp.single))[:, self.xp.newaxis, :]
+                    py = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.y[:, self.xp.newaxis],
+                                                        dtype=self.xp.single))[:, :, self.xp.newaxis]
+                    pz = self.xp.exp(1j * self.xp.array(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis],
+                                                        dtype=self.xp.single)) * ill[:, self.xp.newaxis]
                     # self.phasetilts[isteps, :, :, :] = self.xp.sum((px * py)[:, self.xp.newaxis, :, :] * pz[:, :, self.xp.newaxis, self.xp.newaxis], axis=0)
                     self.phasetilts[isteps, :, :, :] = self.xp.einsum('i...,i...', (px * py)[:, self.xp.newaxis, :, :], pz[:, :, self.xp.newaxis, self.xp.newaxis])
                 else:
-                    px = torch.exp(1j * self.x * self.kxy)
-                    py = torch.exp(1j * self.y * self.kxy)
-                    pz = torch.exp(1j * z * self.kz) * torch.tensor(ill)
-                    self.phasetilts[isteps, :, :, :] += px * py * pz
+                    px = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.x[:, None], device=self._tdev))[:,
+                         None, :]
+                    py = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.y[:, None], device=self._tdev))[:, :,
+                         None]
+                    pz = torch.exp(1j * torch.tensor(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], device=self._tdev)) * ill[:, None]
 
-        # for n in range(self._n_steps):
-        #     self.points += self.drift * np.random.standard_normal(3) / 1000
-        #     self.points[:, 0] += self.xdrift / 1000
-        #     self.points[:, 2] += self.zdrift / 1000
-        #     for i in range(self.npoints):
-        #         prog = (100 * itcount) // total_its
-        #         if prog > lastProg + 9:
-        #             lastProg = prog
-        #             yield f'Phase tilts calculation: {prog:.1f}% done'
-        #         itcount += 1
-        #         self.x = self.points[i, 0]
-        #         self.y = self.points[i, 1]
-        #         z = self.points[i, 2]
-        #         # get illumination from the child class
-        #         # if self.pol == 'axial':
-        #         #     ill = self._illAx(pstep, astep)
-        #
-        #         if self.pol == 'axial':
-        #             ill = self._ill()
-        #
-        #         if self.acc == 0:
-        #             px = np.exp(1j * np.single(self.x * self.kxy))
-        #             py = np.exp(1j * np.single(self.y * self.kxy))[:, np.newaxis]
-        #             pz = (np.exp(1j * np.single(z * self.kz)) * ill[n])[:, np.newaxis, np.newaxis]
-        #             self.phasetilts[n, :, :, :] += (px * py) * pz
-        #         elif self.acc == 3:
-        #             px = cp.exp(1j * self.x * self.kxy)
-        #             py = cp.exp(1j * self.y * self.kxy)[:, cp.newaxis]
-        #             pz = (cp.exp(1j * z * self.kz) * ill[n])[:, cp.newaxis, cp.newaxis]
-        #             self.phasetilts[n, :, :, :] += (px * py) * pz
-        #         else:
-        #             px = torch.exp(1j * self.x * self.kxy)
-        #             py = torch.exp(1j * self.y * self.kxy)
-        #             pz = torch.exp(1j * z * self.kz) * ill[n]
-        #             self.phasetilts[n, :, :, :] += (px * py[..., None]) * pz[..., None, None]
+                    self.phasetilts[isteps, :, :, :] = torch.einsum('i...,i...', (px * py)[:, None, :, :],
+                                                                    pz[:, :, None, None])
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
@@ -404,16 +380,18 @@ class Base_simulator:
 
     def illumination_stack(self):
         # Calculates 3d psf and otf before the image stack
-        # self.initialise()
         print(f'allocating illumination stack: {(int(self.tpoints), self.N, self.N)}')
 
-
-        # illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
-
-        illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
-        xyvals = (self.xp.arange(self.N) - self.N / 2) * self.dx
-        xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
-        xarr_l, yarr_l = self.xp.array(xarr).flatten(), self.xp.array(yarr).flatten()
+        if (self.acc == 0) | (self.acc == 3):
+            illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
+            xyvals = (self.xp.arange(self.N) - self.N / 2) * self.dx
+            xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
+            xarr_l, yarr_l = self.xp.array(xarr).flatten(), self.xp.array(yarr).flatten()
+        else:
+            illumination = torch.zeros(int(self.tpoints), self.N, self.N, device=self._tdev)
+            xyvals = torch.tensor((self.xp.arange(self.N) - self.N / 2) * self.dx, device=self._tdev)
+            xarr, yarr = torch.meshgrid(xyvals, xyvals)
+            xarr_l, yarr_l = torch.flatten(xarr), torch.flatten(yarr)
 
         self.npoints = xarr_l.shape[0]
         self._get_alpha_constants()
@@ -426,7 +404,10 @@ class Base_simulator:
                 print(f'astep = {astep}, pstep = {pstep}')
                 itcount += 1
                 ill_1d = self._ill_test(xarr_l, yarr_l, pstep, astep)
-                illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
+                if (self.acc == 0) | (self.acc == 3):
+                    illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
+                else:
+                    illumination[itcount, :, :] = torch.reshape(ill_1d, (self.N, self.N))
 
         for i in range(1, int(self.tpoints) // self._nsteps):
             for j in range(self._nsteps):
@@ -437,6 +418,8 @@ class Base_simulator:
 
         if self.acc == 0:
             return illumination
+        elif self.acc ==1:
+            return illumination.numpy()
         elif self.acc == 2:
             return illumination.detach().cpu().numpy()
         elif self.acc == 3:
