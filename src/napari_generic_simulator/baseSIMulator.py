@@ -382,32 +382,31 @@ class Base_simulator:
         # Calculates 3d psf and otf before the image stack
         print(f'allocating illumination stack: {(int(self.tpoints), self.N, self.N)}')
 
-        if (self.acc == 0) | (self.acc == 3):
-            illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
-            xyvals = (self.xp.arange(self.N) - self.N / 2) * self.dx
-            xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
-            xarr_l, yarr_l = self.xp.array(xarr).flatten(), self.xp.array(yarr).flatten()
-        else:
-            illumination = torch.zeros(int(self.tpoints), self.N, self.N, device=self._tdev)
-            xyvals = torch.tensor((self.xp.arange(self.N) - self.N / 2) * self.dx, device=self._tdev)
-            xarr, yarr = torch.meshgrid(xyvals, xyvals)
-            xarr_l, yarr_l = torch.flatten(xarr), torch.flatten(yarr)
+        illumination = self.xp.zeros((int(self.tpoints), self.N, self.N))
+        xyvals = (self.xp.arange(self.N) - self.N / 2) * self.dx
+        xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
+        xarr_l, yarr_l = self.xp.array(xarr).flatten(), self.xp.array(yarr).flatten()
+
+        if (self.acc == 1) | (self.acc == 2):
+            illumination = torch.zeros((int(self.tpoints), self.N, self.N), device=self._tdev)
+            xarr_l, yarr_l = torch.tensor(xarr_l, device=self._tdev), torch.tensor(yarr_l, device=self._tdev)
 
         self.npoints = xarr_l.shape[0]
         self._get_alpha_constants()
-
         start_time = time.time()
         itcount = -1
 
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
-                print(f'astep = {astep}, pstep = {pstep}')
                 itcount += 1
                 ill_1d = self._ill_test(xarr_l, yarr_l, pstep, astep)
                 if (self.acc == 0) | (self.acc == 3):
                     illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
                 else:
                     illumination[itcount, :, :] = torch.reshape(ill_1d, (self.N, self.N))
+        # print(self.E_beams[1])
+        # print(self.alpha_matrix[2,2])
+        # print(self.ttt)
 
         for i in range(1, int(self.tpoints) // self._nsteps):
             for j in range(self._nsteps):

@@ -80,6 +80,8 @@ class Illumination(Base_simulator):
                 self.E_beams[:, astep, i] = self.xp.exp(
                     -1j * (xyz @ self.rotation(phi, self.theta) @
                         self.xp.array([0, 0, self.k0])))
+                # self.ttt = (xyz @ self.rotation(phi, self.theta))[:10]
+
             b = 0
             for i in range(self._n_beams):
                 for j in range(int(self._n_beams - i - 1)):
@@ -99,7 +101,10 @@ class Illumination(Base_simulator):
             for i in range(self._n_beams):
                 phi = i * self._beam_a + astep * 2 * np.pi / self._angleStep
                 self.E_beams[:, astep, i] = torch.exp(
-                        -1j * (xyz @ self.rotation(phi, self.theta) @ torch.tensor([0, 0, self.k0], device=self._tdev, dtype=torch.float64)))
+                        -1j * (torch.matmul(torch.matmul(xyz, self.rotation(phi, self.theta)),torch.tensor([0, 0, self.k0], device=self._tdev, dtype=torch.float64))))
+                # # self.ttt = torch.matmul(torch.matmul(xyz, self.rotation(phi, self.theta)), torch.tensor([0, 0, self.k0], device=self._tdev, dtype=torch.float64))[:10]
+                # self.ttt = torch.matmul(xyz, self.rotation(phi, self.theta))[:10]
+
             b = 0
             for i in range(self._n_beams):
                 for j in range(int(self._n_beams - i - 1)):
@@ -120,10 +125,9 @@ class Illumination(Base_simulator):
         for i in range(int(self._nbands / self._angleStep)):
             self.phase_matrix[i+1] = self.xp.exp(1j * (pstep * (i + 1) * Phi0))
             self.phase_matrix[int(i + 1 + self._nbands / self._angleStep)] = self.xp.exp(-1j * (pstep * (i + 1) * Phi0))
-        if (self.acc == 0) or (self.acc == 3):
-            return self.phase_matrix
-        else:
-            return torch.tensor(self.phase_matrix, device=self._tdev)
+        if (self.acc == 1) or (self.acc == 2):
+            self.phase_matrix = torch.tensor(self.phase_matrix, device=self._tdev)
+        return self.phase_matrix
 
 
     def _ill_test(self, x, y, pstep, astep):
