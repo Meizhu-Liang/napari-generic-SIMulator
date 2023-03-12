@@ -7,7 +7,7 @@ import torch
 
 from .baseSIMulator import Base_simulator
 import numpy as np
-from numpy import cos, sin, pi
+from numpy import cos, sin
 
 
 class Illumination(Base_simulator):
@@ -121,33 +121,23 @@ class Illumination(Base_simulator):
         return self.alpha_matrix
 
     def _ill_test(self, x, y, pstep, astep):
-        f_in = self.xp.array(self.f_p)  # input field
+        f_in = self.xp.transpose(self.xp.array(self.f_p))  # input field
         p = [0, pstep * 2 * np.pi / self._phaseStep, pstep * (-4) * np.pi / self._phaseStep]
-        phi = astep * 2 * np.pi / self._angleStep
-        S = self.xp.zeros((self._n_beams,self.npoints, 3), dtype=self.xp.complex64)
+        phi = astep * self._beam_a
+        S = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
         for i in range(self._n_beams):
-
-            S[i, :, :] = self.rotation(phi, self.theta) @ self.xp.array(
+            S[:, i, :] = self.rotation(phi, self.theta) @ self.xp.array(
                 [[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ f_in
-        S = self.xp.reshape(S, (self._n_beams, 3, self.npoints))
-
-        E = self.xp.zeros((self._n_beams, 3, self.npoints), dtype=self.xp.complex64)
-
+        E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
         for i in range(self._n_beams):
             phi = i * self._beam_a + astep * 2 * np.pi / self._angleStep
-            xyz = self.xp.transpose(self.xp.stack([x + p[i], y, self.xp.zeros(self.npoints)]))
-            e = self.xp.exp(
-                -1j * (xyz @ self.rotation(phi, self.theta) @
-                       self.xp.array([0, 0, self.k0])))
-
-            print(e.shape)
-            E[i, :, :] = self.xp.array([e, ] * 3)
-        print('qwertyy')
-        print(S,E[0])
-        F = self.xp.sum(S * E, axis=(0, 1), dtype=self.xp.complex64)
-        print(F)
-        print(np.dot(F, self.xp.conjugate(F)).shape)
-        return F * self.xp.conjugate(F)
+            xyz = self.xp.transpose(self.xp.stack([x, y, self.xp.zeros(self.npoints)]))
+            e = self.xp.exp(-1j * (xyz @ self.rotation(phi, self.theta) @ self.xp.array([0, 0, self.k0]) + p[i]))
+            E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
+        F = self.xp.sum(S * E, axis=1, dtype=self.xp.complex64)
+        ill = self.xp.sum(F * self.xp.conjugate(F), axis=1)  # the dot multiplication
+        print(ill.max())
+        return ill / self.xp.floor(self.xp.real(ill.max()) + 0.5)
 
     #
     # def _ill_test(self, x, y, pstep, astep):

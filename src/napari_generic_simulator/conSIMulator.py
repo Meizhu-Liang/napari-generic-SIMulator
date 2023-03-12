@@ -5,7 +5,6 @@ __author__ = "Meizhu Liang @Imperial College London"
 
 from .baseSIMulator import Base_simulator
 import numpy as np
-from numpy import sin, cos
 
 
 class ConSim_simulator(Base_simulator):

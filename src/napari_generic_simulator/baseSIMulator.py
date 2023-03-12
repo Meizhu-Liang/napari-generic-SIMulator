@@ -384,7 +384,6 @@ class Base_simulator:
         yield f'Finished, Phase tilts calculation time:  {elapsed_Brownian:3f}s'
 
     def illumination_stack(self):
-        print(self.S_beams.shape)
         # Calculates 3d psf and otf before the image stack
         print(f'allocating illumination stack: {(int(self.tpoints), self.N, self.N)}')
 
@@ -417,15 +416,15 @@ class Base_simulator:
 
         elapsed_time = time.time() - start_time
         print(f'Illumination calculation time:  {elapsed_time:3f}s')
-
         if self.acc == 0:
             return illumination
-        elif self.acc ==1:
+        elif self.acc == 1:
             return illumination.numpy()
         elif self.acc == 2:
             return illumination.detach().cpu().numpy()
         elif self.acc == 3:
             return cp.asnumpy(illumination)
+
 
 
 
