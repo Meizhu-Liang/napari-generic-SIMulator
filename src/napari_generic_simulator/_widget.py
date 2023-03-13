@@ -402,60 +402,56 @@ class SIMulator(QWidget):
 
             _get_results()
 
-    def show_illumination(self, show_illumination: bool = False):
+    def show_illumination(self):
         if hasattr(self, 'sim'):
-            if show_illumination:
+            if self.used_par_list != self.par_list():
+                self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
+            else:
+                # try:
+                self._viewer.add_image(self.sim.illumination_stack(),
+                                       scale=(self.zdrift.value * 0.001,
+                                              self.pixel_size.value / self.magnification.value,
+                                              self.pixel_size.value / self.magnification.value),
+                                       translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                       name='illumination')
+                # except Exception as e:
+                #     print(str(e))
+
+    def show_raw_img_sum(self):
+        if hasattr(self, 'sim'):
+            if hasattr(self.sim, 'img_sum_z'):
                 if self.used_par_list != self.par_list():
                     self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                 else:
                     try:
-                        self._viewer.add_image(self.sim.illumination_stack(),
-                                               scale=(self.zdrift.value * 0.001,
-                                                      self.pixel_size.value / self.magnification.value,
-                                                      self.pixel_size.value / self.magnification.value),
-                                               translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
-                                                          -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                          -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                               name='illumination')
+                        self._viewer.add_image(self.sim.img_sum_z, name='raw image sum along z axis')
+                        self._viewer.add_image(self.sim.img_sum_x, name='raw image sum along x (or y) axis')
                     except Exception as e:
                         print(str(e))
 
-    def show_raw_img_sum(self, show_raw_img_sum: bool = False):
-        if hasattr(self, 'sim'):
-            if hasattr(self.sim, 'img_sum_z'):
-                if show_raw_img_sum:
-                    if self.used_par_list != self.par_list():
-                        self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
-                    else:
-                        try:
-                            self._viewer.add_image(self.sim.img_sum_z, name='raw image sum along z axis')
-                            self._viewer.add_image(self.sim.img_sum_x, name='raw image sum along x (or y) axis')
-                        except Exception as e:
-                            print(str(e))
-
-    def show_psf(self, show_3D_psf_slice: bool = False):
+    def show_psf(self):
         if hasattr(self, 'sim'):
             if hasattr(self.sim, 'psf_z0'):
-                if show_3D_psf_slice:
-                    if self.used_par_list != self.par_list():
-                        self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
-                    else:
-                        try:
-                            self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
-                        except Exception as e:
-                            print(e)
+                if self.used_par_list != self.par_list():
+                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
+                else:
+                    try:
+                        self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
+                    except Exception as e:
+                        print(e)
 
-    def show_otf(self, show_3D_otf_slice: bool = False):
+    def show_otf(self):
         if hasattr(self, 'sim'):
             if hasattr(self.sim, 'aotf_x'):
-                if show_3D_otf_slice:
-                    if self.used_par_list != self.par_list():
-                        self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
-                    else:
-                        try:
-                            self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
-                        except Exception as e:
-                            print(str(e))
+                if self.used_par_list != self.par_list():
+                    self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
+                else:
+                    try:
+                        self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
+                    except Exception as e:
+                        print(str(e))
 
     def save_tif_with_tags(self):
         """Saves the selected image layer as a tif file with tags"""
@@ -490,13 +486,17 @@ class SIMulator(QWidget):
                                    self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
                                    self.sph_abb])], layout='horizontal')
         w_cal = magicgui(self.get_results, call_button='Calculate raw image stack', auto_call=False)
-        w_save_and_print = Container(widgets=[magicgui(self.save_tif_with_tags, call_button='save_tif_with_tags'),
-                                              magicgui(self.print_tif_tags, call_button='print_tags')],
-                                     layout='horizontal', labels=None)
-        w_sum = magicgui(self.show_raw_img_sum, auto_call=True)
-        w_psf = magicgui(self.show_psf, auto_call=True)
-        w_otf = magicgui(self.show_otf, auto_call=True)
-        w_ill = magicgui(self.show_illumination, auto_call=True)
+        w_save_and_print = Container(widgets=[
+            Container(widgets=[
+                magicgui(self.save_tif_with_tags, call_button='save_tif_with_tags'),
+                magicgui(self.show_raw_img_sum, call_button='raw image sum'),
+                magicgui(self.show_psf, call_button='psf')], labels=False),
+            Container(widgets=[
+                magicgui(self.print_tif_tags, call_button='print_tags'),
+                magicgui(self.show_otf, call_button='otf'),
+                magicgui(self.show_illumination, call_button='illumination')], labels=False)],
+            layout='horizontal', labels=None)
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select sample layer'), w_parameters, w_cal, w_save_and_print, w_sum, w_psf, w_otf, w_ill, self.messageBox],
+        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select sample layer'),
+                                    w_parameters, w_cal, w_save_and_print, self.messageBox],
                            labels=None)
