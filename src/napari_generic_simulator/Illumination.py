@@ -15,6 +15,20 @@ class Illumination(Base_simulator):
     def __init__(self):
         super().__init__()
         self._nsteps = int(self._phaseStep * self._angleStep)
+        # systematic errors, could be arbitrary
+        if self.add_error:
+            self.phase_error = np.reshape((2 * np.random.random(int(self._nsteps * self._n_beams)) - 1),
+                                          (self._n_beams, self._angleStep, self._phaseStep))
+            self.phase_error[0] = 0.0
+            self.phase_error[:, :, 0] = 0.0
+            print(f'phase errors:{self.phase_error}')
+            self.angle_error = np.reshape((2 * np.random.random(self._angleStep * self._n_beams) - 1), (self._n_beams, self._angleStep))
+            self.angle_error[0] = 0.0
+            self.angle_error[:, 0] = 0.0
+            print(f'angle errors:{self.angle_error}')
+        else:
+            self.phase_error = np.zeros((self._n_beams, self._angleStep, self._phaseStep))
+            self.angle_error = np.zeros((self._n_beams, self._angleStep))
 
     def rotation(self, phi, theta):
         """Calculates the rotation matrix"""
@@ -51,9 +65,10 @@ class Illumination(Base_simulator):
         if (self.acc == 0) or (self.acc == 3):
             E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
             for i in range(self._n_beams):
-                phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep
+                phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep + self.angle_error[i, astep]
                 xyz = self.xp.transpose(self.xp.stack([x, y, self.xp.zeros(self.npoints)]))
-                e = self.xp.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ self.xp.array([0, 0, self.k0]) + p[i]))
+                e = self.xp.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ self.xp.array([0, 0, self.k0]) + p[i] +
+                                       self.phase_error[i, astep, pstep]))
                 E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
             F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)
             ill = self.xp.sum(F * self.xp.conjugate(F), axis=1)  # the dot multiplication
@@ -62,8 +77,12 @@ class Illumination(Base_simulator):
             E = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
             for i in range(self._n_beams):
                 phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep
-                xyz = torch.transpose(torch.stack([x, y, torch.zeros(self.npoints, device=self._tdev, dtype=torch.float64)]), 0, 1)
-                e = torch.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ torch.tensor([0, 0, self.k0], dtype=torch.float64, device=self._tdev) + p[i]))
+                xyz = torch.transpose(
+                    torch.stack([x, y, torch.zeros(self.npoints, device=self._tdev, dtype=torch.float64)]), 0, 1)
+                e = torch.exp(-1j * (
+                            xyz @ self.rotation(phi_E, self.theta) @ torch.tensor([0, 0, self.k0], dtype=torch.float64,
+                                                                                  device=self._tdev) + p[i] +
+                            self.phase_error[i, astep, pstep]))
                 E[:, i, :] = torch.transpose(torch.stack((e, e, e)), 0, 1)
             F = torch.sum(self.S * E, axis=1, dtype=torch.complex64)
             ill = torch.sum(F * torch.conj(F), axis=1)  # the dot multiplication
