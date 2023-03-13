@@ -121,12 +121,6 @@ class Base_simulator:
 
         self.jones_vectors()
 
-        if (self.acc == 1) or (self.acc == 2):
-            self.phase_matrix = torch.tensor(self.phase_matrix, device=self._tdev)
-        if self.acc == 3:
-            self.phase_matrix = cp.array(self.phase_matrix)
-
-
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000

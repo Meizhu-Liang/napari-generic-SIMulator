@@ -9,10 +9,7 @@ from numpy import cos, sin
 
 
 class HexSim_simulator(Base_simulator):
-    '''
-    Implements hexagonal SIM illumination with three beams, seven phase steps, with beams being at 2π/3 angles.
-
-    '''
+    """Implements hexagonal SIM illumination with three beams, seven phase steps, with beams being at 2π/3 angles."""
 
     def __init__(self):
         self._phaseStep = 7

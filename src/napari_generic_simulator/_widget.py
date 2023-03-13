@@ -148,7 +148,7 @@ class PointCloud(QWidget):
         """Creates a widget containing all small widgets"""
         self.w_samples = RadioButtons(value=Samples.SPHEROID, choices=Samples)
 
-        self.sph_points = SpinBox(value=200, step=50, label='spheroid_points')
+        self.sph_points = SpinBox(value=500, step=50, label='spheroid_points')
         self.sph_rad = SpinBox(value=5, label='spheroid_radius (μm)')
         self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='spheroid_depth (μm)')
         self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad])
@@ -163,8 +163,9 @@ class PointCloud(QWidget):
                                                   magicgui(self.load_pc, call_button='Load point cloud',
                                                            auto_call=False)], layout="horizontal", labels=None)
         self.c_w = Container(widgets=[self.w_samples, self.w_sph, self.w_fil, magicgui(self.gen_pc,
-                                                               call_button='Generate point cloud',
-                                                               auto_call=False), self.comprehensive_w], labels=None)
+                                                                                       call_button='Generate point cloud',
+                                                                                       auto_call=False),
+                                      self.comprehensive_w], labels=None)
 
 
 class Sim_mode(Enum):
@@ -407,17 +408,17 @@ class SIMulator(QWidget):
             if self.used_par_list != self.par_list():
                 self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
             else:
-                # try:
-                self._viewer.add_image(self.sim.illumination_stack(),
-                                       scale=(self.zdrift.value * 0.001,
-                                              self.pixel_size.value / self.magnification.value,
-                                              self.pixel_size.value / self.magnification.value),
-                                       translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
-                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                       name='illumination')
-                # except Exception as e:
-                #     print(str(e))
+                try:
+                    self._viewer.add_image(self.sim.illumination_stack(),
+                                           scale=(self.zdrift.value * 0.001,
+                                                  self.pixel_size.value / self.magnification.value,
+                                                  self.pixel_size.value / self.magnification.value),
+                                           translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
+                                                      -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                      -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                           name='illumination')
+                except Exception as e:
+                    print(str(e))
 
     def show_raw_img_sum(self):
         if hasattr(self, 'sim'):
@@ -426,8 +427,20 @@ class SIMulator(QWidget):
                     self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                 else:
                     try:
-                        self._viewer.add_image(self.sim.img_sum_z, name='raw image sum along z axis')
-                        self._viewer.add_image(self.sim.img_sum_x, name='raw image sum along x (or y) axis')
+                        self._viewer.add_image(self.sim.img_sum_z,
+                                               scale=(self.pixel_size.value / self.magnification.value,
+                                                      self.pixel_size.value / self.magnification.value),
+                                               translate=(
+                                                -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                               name='raw image sum along z axis')
+                        self._viewer.add_image(self.sim.img_sum_x,
+                                               scale=(self.pixel_size.value / self.magnification.value,
+                                                      self.pixel_size.value / self.magnification.value),
+                                               translate=(
+                                                   -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                   -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                               name='raw image sum along x (or y) axis')
                     except Exception as e:
                         print(str(e))
 
@@ -438,7 +451,13 @@ class SIMulator(QWidget):
                     self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                 else:
                     try:
-                        self._viewer.add_image(self.sim.psf_z0, name='PSF in x-y plane')
+                        self._viewer.add_image(self.sim.psf_z0,
+                                               scale=(self.pixel_size.value / self.magnification.value,
+                                                      self.pixel_size.value / self.magnification.value),
+                                               translate=(
+                                                -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                               name='PSF in x-y plane')
                     except Exception as e:
                         print(e)
 
@@ -449,7 +468,13 @@ class SIMulator(QWidget):
                     self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                 else:
                     try:
-                        self._viewer.add_image(self.sim.aotf_x, name='OTF perpendicular to x')
+                        self._viewer.add_image(self.sim.aotf_x,
+                                               scale=(self.pixel_size.value / self.magnification.value,
+                                                      self.pixel_size.value / self.magnification.value),
+                                               translate=(
+                                                -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                               name='OTF perpendicular to x')
                     except Exception as e:
                         print(str(e))
 
