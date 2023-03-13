@@ -119,7 +119,8 @@ class Base_simulator:
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
 
-        # self._get_alpha_constants()
+        self.jones_vectors()
+
         if (self.acc == 1) or (self.acc == 2):
             self.phase_matrix = torch.tensor(self.phase_matrix, device=self._tdev)
         if self.acc == 3:
@@ -397,9 +398,11 @@ class Base_simulator:
             xarr_l, yarr_l = torch.tensor(xarr_l, device=self._tdev), torch.tensor(yarr_l, device=self._tdev)
 
         self.npoints = xarr_l.shape[0]
-        # self._get_alpha_constants()
+
         start_time = time.time()
         itcount = -1
+
+        self.jones_vectors()
 
         for astep in range(self._angleStep):
             for pstep in range(self._phaseStep):

@@ -120,25 +120,46 @@ class Illumination(Base_simulator):
     #             self.alpha_matrix[:, astep, i + 1 + b] = torch.conj(self.alpha_band[:, astep, i])
     #     return self.alpha_matrix
 
-    def _ill_test(self, x, y, pstep, astep):
+    def jones_vectors(self):
         self.theta = np.arcsin(self.ill_NA / self.n)
-        f_in = self.xp.transpose(self.xp.array(self.f_p))  # input field
+        if (self.acc == 0) or (self.acc == 3):
+            f_in = self.xp.transpose(self.xp.array(self.f_p))  # input field
+            self.S = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
+            for i in range(self._n_beams):
+                phi_S = i * self._beam_a
+                self.S[:, i, :] = self.rotation(phi_S, self.theta) @ self.xp.array(
+                    [[cos(phi_S), -sin(phi_S)], [sin(phi_S), cos(phi_S)], [0, 0]]) @ f_in
+        else:
+            f_in = torch.tensor(self.f_p, dtype=torch.float64, device=self._tdev)  # input field
+            self.S = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
+            for i in range(self._n_beams):
+                phi_S = i * self._beam_a
+                self.S[:, i, :] = self.rotation(phi_S, self.theta) @ torch.tensor(
+                    [[cos(phi_S), -sin(phi_S)], [sin(phi_S), cos(phi_S)], [0, 0]], device=self._tdev) @ f_in
+
+    def _ill_test(self, x, y, pstep, astep):
         p = [0, pstep * 2 * np.pi / self._phaseStep, pstep * (-4) * np.pi / self._phaseStep]
-        S = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
-        for i in range(self._n_beams):
-            phi_S = i * self._beam_a
-            S[:, i, :] = self.rotation(phi_S, self.theta) @ self.xp.array(
-                [[cos(phi_S), -sin(phi_S)], [sin(phi_S), cos(phi_S)], [0, 0]]) @ f_in
-        E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
-        for i in range(self._n_beams):
-            phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep
-            xyz = self.xp.transpose(self.xp.stack([x, y, self.xp.zeros(self.npoints)]))
-            e = self.xp.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ self.xp.array([0, 0, self.k0]) + p[i]))
-            E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
-        F = self.xp.sum(S * E, axis=1, dtype=self.xp.complex64)
-        ill = self.xp.sum(F * self.xp.conjugate(F), axis=1)  # the dot multiplication
-        print(ill)
-        return ill / self.xp.floor(self.xp.real(ill.max()) + 0.5)
+        if (self.acc == 0) or (self.acc == 3):
+            E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
+            for i in range(self._n_beams):
+                phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep
+                xyz = self.xp.transpose(self.xp.stack([x, y, self.xp.zeros(self.npoints)]))
+                e = self.xp.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ self.xp.array([0, 0, self.k0]) + p[i]))
+                E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
+            F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)
+            ill = self.xp.sum(F * self.xp.conjugate(F), axis=1)  # the dot multiplication
+            nor_ill = ill / self.xp.floor(self.xp.real(ill).max() + 0.5)  # normalised illumination
+        else:
+            E = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
+            for i in range(self._n_beams):
+                phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep
+                xyz = torch.transpose(torch.stack([x, y, torch.zeros(self.npoints, device=self._tdev, dtype=torch.float64)]), 0, 1)
+                e = torch.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ torch.tensor([0, 0, self.k0], dtype=torch.float64, device=self._tdev) + p[i]))
+                E[:, i, :] = torch.transpose(torch.stack((e, e, e)), 0, 1)
+            F = torch.sum(self.S * E, axis=1, dtype=torch.complex64)
+            ill = torch.sum(F * torch.conj(F), axis=1)  # the dot multiplication
+            nor_ill = ill / torch.floor(torch.real(ill).max() + 0.5)  # normalised illumination
+        return nor_ill
 
     #
     # def _ill_test(self, x, y, pstep, astep):
