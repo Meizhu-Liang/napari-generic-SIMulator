@@ -52,8 +52,7 @@ class Base_simulator:
     defocus = 0  # de-focus aberration in um
     spherical = 0
     sph_abb = 0
-    add_error =True
-    f_p = None
+    add_error = False
 
     def initialise(self):
         if self.acc == 3:

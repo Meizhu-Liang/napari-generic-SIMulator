@@ -175,9 +175,11 @@ class Sim_mode(Enum):
 
 
 class Pol(Enum):
-    IN_PLANE = 0
-    AXIAL = 1
-    CIRCULAR = 2
+    in_plane = 0
+    axial = 1
+    circular = 2
+    horizontal = 3
+    vertical = 4
 
 
 class Psf_calc(Enum):
@@ -226,7 +228,7 @@ class SIMulator(QWidget):
 
     def parameters(self):
         self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
-        self.Polarisation = ComboBox(value=Pol.AXIAL, label='Polarisation', choices=Pol)
+        self.Polarisation = ComboBox(value=Pol.axial, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
         self.Psf = ComboBox(value=Psf_calc.SCALAR, label='Psf calculation', choices=Psf_calc)
         self.N = SpinBox(value=128, name='spin', label='N pixel')
@@ -271,15 +273,16 @@ class SIMulator(QWidget):
             self.sim = ConIll()
             nsteps = self.sim._phaseStep * self.sim._angleStep
 
-        if self.Polarisation.value == Pol.IN_PLANE:
-            self.sim.pol = 'in-plane'
-            self.sim.f_p = [0, 1]
-        elif self.Polarisation.value == Pol.AXIAL:
-            self.sim.pol = 'axial'
-            self.sim.f_p = [1, 0]
-        elif self.Polarisation.value == Pol.CIRCULAR:
-            self.sim.pol = 'circular'
-            self.sim.f_p = [1, 1j] / np.sqrt(2)
+        if self.Polarisation.value == Pol.in_plane:
+            self.sim.pol = 'i'
+        elif self.Polarisation.value == Pol.axial:
+            self.sim.pol = 'a'
+        elif self.Polarisation.value == Pol.circular:
+            self.sim.pol = 'c'
+        elif self.Polarisation.value == Pol.horizontal:
+            self.sim.pol = 'h'
+        elif self.Polarisation.value == Pol.vertical:
+            self.sim.pol = 'v'
 
         if self.Acceleration.value == Accel.NUMPY:
             self.sim.acc = 0

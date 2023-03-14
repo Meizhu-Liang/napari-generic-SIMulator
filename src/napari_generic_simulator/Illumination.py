@@ -43,22 +43,34 @@ class Illumination(Base_simulator):
                 @ torch.tensor([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]], device=self._tdev)
         return R
 
+    def polarised_field(self, phi):
+        if self.pol == 'i':
+            f_p = self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ [[1], [0]]
+        elif self.pol == 'a':
+            f_p = self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ self.xp.array([[0], [1]])
+        elif self.pol == 'c':
+            f_p = self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ [[1], [1j]] / self.xp.sqrt(2)
+        elif self.pol == 'h':
+            f_p = self.xp.array([[1, 0], [0, 1], [0, 0]]) @ [[0], [1]]
+        elif self.pol == 'v':
+            f_p = self.xp.array([[1, 0], [0, 1], [0, 0]]) @ [[1], [0]]
+        return f_p
+
     def jones_vectors(self):
         self.theta = np.arcsin(self.ill_NA / self.n)
         if (self.acc == 0) or (self.acc == 3):
-            f_in = self.xp.transpose(self.xp.array(self.f_p))  # input field
             self.S = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
             for i in range(self._n_beams):
                 phi_S = i * self._beam_a
-                self.S[:, i, :] = self.rotation(phi_S, self.theta) @ self.xp.array(
-                    [[cos(phi_S), -sin(phi_S)], [sin(phi_S), cos(phi_S)], [0, 0]]) @ f_in
+                print(self.polarised_field(phi_S))
+                f_p = self.xp.array(self.polarised_field(phi_S))
+                self.S[:, i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)
         else:
-            f_in = torch.tensor(self.f_p, dtype=torch.float64, device=self._tdev)  # input field
             self.S = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
             for i in range(self._n_beams):
                 phi_S = i * self._beam_a
-                self.S[:, i, :] = self.rotation(phi_S, self.theta) @ torch.tensor(
-                    [[cos(phi_S), -sin(phi_S)], [sin(phi_S), cos(phi_S)], [0, 0]], device=self._tdev) @ f_in
+                f_p = torch.tensor(self.polarised_field(phi_S), dtype=torch.float64, device=self._tdev)  # input field
+                self.S[:, i, :] = torch.transpose(self.rotation(phi_S, self.theta) @ f_p, 0, 1)
 
     def _ill_test(self, x, y, pstep, astep):
         p = [0, pstep * 2 * np.pi / self._phaseStep, pstep * (-4) * np.pi / self._phaseStep]
@@ -72,7 +84,6 @@ class Illumination(Base_simulator):
                 E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
             F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)
             ill = self.xp.sum(F * self.xp.conjugate(F), axis=1)  # the dot multiplication
-            nor_ill = ill / self.xp.floor(self.xp.real(ill).max() + 0.5)  # normalised illumination
         else:
             E = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
             for i in range(self._n_beams):
@@ -86,8 +97,7 @@ class Illumination(Base_simulator):
                 E[:, i, :] = torch.transpose(torch.stack((e, e, e)), 0, 1)
             F = torch.sum(self.S * E, axis=1, dtype=torch.complex64)
             ill = torch.sum(F * torch.conj(F), axis=1)  # the dot multiplication
-            nor_ill = ill / torch.floor(torch.real(ill).max() + 0.5)  # normalised illumination
-        return nor_ill
+        return ill
 
 
 class ConIll(Illumination):
