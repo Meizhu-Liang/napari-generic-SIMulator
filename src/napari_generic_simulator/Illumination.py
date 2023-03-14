@@ -68,7 +68,7 @@ class Illumination(Base_simulator):
         else:
             self.S = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
             for i in range(self._n_beams):
-                phi_S = i * self._beam_a
+                phi_S = i * self._beam_a + astep * 2 * self.xp.pi / self._angleStep
                 f_p = torch.tensor(self.polarised_field(phi_S), dtype=torch.float64, device=self._tdev)  # input field
                 self.S[:, i, :] = torch.transpose(self.rotation(phi_S, self.theta) @ f_p, 0, 1)
 
