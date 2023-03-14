@@ -228,7 +228,7 @@ class SIMulator(QWidget):
 
     def parameters(self):
         self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
-        self.Polarisation = ComboBox(value=Pol.axial, label='Polarisation', choices=Pol)
+        self.Polarisation = ComboBox(value=Pol.radial, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
         self.Psf = ComboBox(value=Psf_calc.SCALAR, label='Psf calculation', choices=Psf_calc)
         self.N = SpinBox(value=128, name='spin', label='N pixel')
@@ -273,7 +273,7 @@ class SIMulator(QWidget):
             self.sim = ConIll()
             nsteps = self.sim._phaseStep * self.sim._angleStep
 
-        if self.Polarisation.value == Pol.azimuthale:
+        if self.Polarisation.value == Pol.azimuthal:
             self.sim.pol = 'a'
         elif self.Polarisation.value == Pol.radial:
             self.sim.pol = 'r'
@@ -419,6 +419,7 @@ class SIMulator(QWidget):
                                            translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2,
                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                           interpolation2d='spline36',
                                            name='illumination')
                 except Exception as e:
                     print(str(e))
