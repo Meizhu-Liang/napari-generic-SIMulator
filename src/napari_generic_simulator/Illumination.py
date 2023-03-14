@@ -76,7 +76,7 @@ class Illumination(Base_simulator):
         else:
             E = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
             for i in range(self._n_beams):
-                phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep
+                phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep + self.angle_error[i, astep]
                 xyz = torch.transpose(
                     torch.stack([x, y, torch.zeros(self.npoints, device=self._tdev, dtype=torch.float64)]), 0, 1)
                 e = torch.exp(-1j * (
