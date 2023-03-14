@@ -175,8 +175,8 @@ class Sim_mode(Enum):
 
 
 class Pol(Enum):
-    in_plane = 0
-    axial = 1
+    azimuthal = 0  # in_plane
+    radial = 1  # axial
     circular = 2
     horizontal = 3
     vertical = 4
@@ -273,10 +273,10 @@ class SIMulator(QWidget):
             self.sim = ConIll()
             nsteps = self.sim._phaseStep * self.sim._angleStep
 
-        if self.Polarisation.value == Pol.in_plane:
-            self.sim.pol = 'i'
-        elif self.Polarisation.value == Pol.axial:
+        if self.Polarisation.value == Pol.azimuthale:
             self.sim.pol = 'a'
+        elif self.Polarisation.value == Pol.radial:
+            self.sim.pol = 'r'
         elif self.Polarisation.value == Pol.circular:
             self.sim.pol = 'c'
         elif self.Polarisation.value == Pol.horizontal:

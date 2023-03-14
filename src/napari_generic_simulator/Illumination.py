@@ -44,24 +44,24 @@ class Illumination(Base_simulator):
         return R
 
     def polarised_field(self, phi):
-        if self.pol == 'i':
-            f_p = self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ [[1], [0]]
-        elif self.pol == 'a':
+        if self.pol == 'a':
             f_p = self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ self.xp.array([[0], [1]])
+        elif self.pol == 'r':
+            f_p = self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ self.xp.array([[1], [0]])
         elif self.pol == 'c':
-            f_p = self.xp.array([[cos(phi), -sin(phi)], [sin(phi), cos(phi)], [0, 0]]) @ [[1], [1j]] / self.xp.sqrt(2)
+            f_p = self.xp.array([[1, 0], [0, 1], [0, 0]]) @ (self.xp.array([[1], [1j]]) / self.xp.sqrt(2))
         elif self.pol == 'h':
-            f_p = self.xp.array([[1, 0], [0, 1], [0, 0]]) @ [[0], [1]]
+            f_p = self.xp.array([[1, 0], [0, 1], [0, 0]]) @ self.xp.array([[1], [0]])
         elif self.pol == 'v':
-            f_p = self.xp.array([[1, 0], [0, 1], [0, 0]]) @ [[1], [0]]
+            f_p = self.xp.array([[1, 0], [0, 1], [0, 0]]) @ self.xp.array([[0], [1]])
         return f_p
 
-    def jones_vectors(self):
+    def jones_vectors(self, astep):
         self.theta = np.arcsin(self.ill_NA / self.n)
         if (self.acc == 0) or (self.acc == 3):
             self.S = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
             for i in range(self._n_beams):
-                phi_S = i * self._beam_a
+                phi_S = i * self._beam_a + astep * 2 * self.xp.pi / self._angleStep
                 print(self.polarised_field(phi_S))
                 f_p = self.xp.array(self.polarised_field(phi_S))
                 self.S[:, i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)

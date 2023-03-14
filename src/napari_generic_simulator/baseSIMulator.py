@@ -118,9 +118,10 @@ class Base_simulator:
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
 
-        self.jones_vectors()
+
 
         for astep in range(self._angleStep):
+            self.jones_vectors(astep)
             for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
                 self.points[:, 0] += self.xdrift / 1000
@@ -395,9 +396,10 @@ class Base_simulator:
         start_time = time.time()
         itcount = -1
 
-        self.jones_vectors()
+
 
         for astep in range(self._angleStep):
+            self.jones_vectors(astep)
             for pstep in range(self._phaseStep):
                 itcount += 1
                 ill_1d = self._ill_test(xarr_l, yarr_l, pstep, astep)
