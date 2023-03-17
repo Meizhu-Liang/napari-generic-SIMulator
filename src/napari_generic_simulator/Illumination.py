@@ -5,12 +5,7 @@ __author__ = "Meizhu Liang @Imperial College London"
 
 from .baseSIMulator import Base_simulator, import_torch
 import numpy as np
-
-if import_torch:
-    try:
-        import torch
-    except:
-        pass
+import torch
 from numpy import cos, sin
 
 
