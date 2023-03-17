@@ -8,8 +8,7 @@ from enum import Enum
 from .baseSIMulator import import_cp, import_torch, torch_GPU
 from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from .conSIMulator import ConSim_simulator
-from .baseSIMulator import ConIll, HexIll, RaHexIll
-# from .Illumination import ConIll, HexIll, RaHexIll
+from .Illumination import ConIll, HexIll, RaHexIll
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons, PushButton
@@ -406,17 +405,6 @@ class SIMulator(QWidget):
                 return self.sim.img
 
             _get_results()
-
-    def print_tif_tags(self):
-        """Prints tags of the selected tif image"""
-        try:
-            frames = tifffile.TiffFile(self._viewer.layers.selection.active.source.path)
-            page = frames.pages[0]
-            # Print file description
-            print(f'==={self._viewer.layers.selection.active.name}.tif===\n' + page.tags["ImageDescription"].value)
-            self.messageBox.value = 'Parameters printed'
-        except Exception as e:
-            print(str(e))
 
     def wrap_widgets(self):
         """Creates a widget containing all small widgets"""
