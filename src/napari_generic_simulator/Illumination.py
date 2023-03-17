@@ -6,11 +6,11 @@ __author__ = "Meizhu Liang @Imperial College London"
 from .baseSIMulator import Base_simulator, import_torch
 import numpy as np
 from numpy import cos, sin
-if import_torch:
-    try:
-        import torch
-    except:
-        pass
+# if import_torch:
+#     try:
+#         import torch
+#     except:
+#         pass
 
 
 class Illumination(Base_simulator):
@@ -42,10 +42,11 @@ class Illumination(Base_simulator):
                 @ self.xp.array([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]]) \
                 @ self.xp.array([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]])
         else:
-            R = torch.tensor([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]], device=self._tdev) \
-                @ torch.tensor([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]],
-                               device=self._tdev) \
-                @ torch.tensor([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]], device=self._tdev)
+            # R = torch.tensor([[cos(phi), -sin(phi), 0], [sin(phi), cos(phi), 0], [0, 0, 1]], device=self._tdev) \
+            #     @ torch.tensor([[cos(theta), 0, -sin(theta)], [0, 1, 0], [sin(theta), 0, cos(theta)]],
+            #                    device=self._tdev) \
+            #     @ torch.tensor([[cos(phi), sin(phi), 0], [-sin(phi), cos(phi), 0], [0, 0, 1]], device=self._tdev)
+            pass
         return R
 
     def polarised_field(self, phi):
@@ -70,11 +71,12 @@ class Illumination(Base_simulator):
                 f_p = self.xp.array(self.polarised_field(phi_S))
                 self.S[:, i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)
         else:
-            self.S = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
-            for i in range(self._n_beams):
-                phi_S = i * self._beam_a + astep * 2 * self.xp.pi / self._angleStep
-                f_p = torch.tensor(self.polarised_field(phi_S), dtype=torch.float64, device=self._tdev)  # input field
-                self.S[:, i, :] = torch.transpose(self.rotation(phi_S, self.theta) @ f_p, 0, 1)
+            # self.S = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
+            # for i in range(self._n_beams):
+            #     phi_S = i * self._beam_a + astep * 2 * self.xp.pi / self._angleStep
+            #     f_p = torch.tensor(self.polarised_field(phi_S), dtype=torch.float64, device=self._tdev)  # input field
+            #     self.S[:, i, :] = torch.transpose(self.rotation(phi_S, self.theta) @ f_p, 0, 1)
+            pass
 
     def _ill_test(self, x, y, pstep, astep):
         p = [0, pstep * 2 * np.pi / self._phaseStep, pstep * (-4) * np.pi / self._phaseStep]
@@ -89,18 +91,19 @@ class Illumination(Base_simulator):
             F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)
             ill = self.xp.sum(F * self.xp.conjugate(F), axis=1)  # the dot multiplication
         else:
-            E = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
-            for i in range(self._n_beams):
-                phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep + self.angle_error[i, astep]
-                xyz = torch.transpose(
-                    torch.stack([x, y, torch.zeros(self.npoints, device=self._tdev, dtype=torch.float64)]), 0, 1)
-                e = torch.exp(-1j * (
-                        xyz @ self.rotation(phi_E, self.theta) @ torch.tensor([0, 0, self.k0], dtype=torch.float64,
-                                                                              device=self._tdev) + p[i] +
-                        self.phase_error[i, astep, pstep]))
-                E[:, i, :] = torch.transpose(torch.stack((e, e, e)), 0, 1)
-            F = torch.sum(self.S * E, axis=1, dtype=torch.complex64)
-            ill = torch.sum(F * torch.conj(F), axis=1)  # the dot multiplication
+            # E = torch.zeros((self.npoints, self._n_beams, 3), dtype=torch.complex64, device=self._tdev)
+            # for i in range(self._n_beams):
+            #     phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep + self.angle_error[i, astep]
+            #     xyz = torch.transpose(
+            #         torch.stack([x, y, torch.zeros(self.npoints, device=self._tdev, dtype=torch.float64)]), 0, 1)
+            #     e = torch.exp(-1j * (
+            #             xyz @ self.rotation(phi_E, self.theta) @ torch.tensor([0, 0, self.k0], dtype=torch.float64,
+            #                                                                   device=self._tdev) + p[i] +
+            #             self.phase_error[i, astep, pstep]))
+            #     E[:, i, :] = torch.transpose(torch.stack((e, e, e)), 0, 1)
+            # F = torch.sum(self.S * E, axis=1, dtype=torch.complex64)
+            # ill = torch.sum(F * torch.conj(F), axis=1)  # the dot multiplication
+            pass
         return ill
 
 
