@@ -7,8 +7,10 @@ from .baseSIMulator import Base_simulator, import_torch
 import numpy as np
 from numpy import cos, sin
 if import_torch:
-    import torch
-
+    try:
+        import torch
+    except:
+        pass
 
 
 class Illumination(Base_simulator):
