@@ -5,13 +5,18 @@ __author__ = "Meizhu Liang @Imperial College London"
 
 from .baseSIMulator import Base_simulator, import_torch
 import numpy as np
+
 if import_torch:
-    import torch
+    try:
+        import torch
+    except:
+        pass
 from numpy import cos, sin
 
 
 class Illumination(Base_simulator):
     """A class to calculate illumination patterns of multiple beams."""
+
     def __init__(self):
         super().__init__()
         self._nsteps = int(self._phaseStep * self._angleStep)
@@ -22,7 +27,8 @@ class Illumination(Base_simulator):
             self.phase_error[0] = 0.0
             self.phase_error[:, :, 0] = 0.0
             # print(f'phase errors:{self.phase_error}')
-            self.angle_error = np.reshape((2 * np.random.random(self._angleStep * self._n_beams) - 1), (self._n_beams, self._angleStep))
+            self.angle_error = np.reshape((2 * np.random.random(self._angleStep * self._n_beams) - 1),
+                                          (self._n_beams, self._angleStep))
             self.angle_error[0] = 0.0
             self.angle_error[:, 0] = 0.0
             # print(f'angle errors:{self.angle_error}')
@@ -62,7 +68,6 @@ class Illumination(Base_simulator):
             self.S = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
             for i in range(self._n_beams):
                 phi_S = i * self._beam_a + astep * 2 * self.xp.pi / self._angleStep
-                print(self.polarised_field(phi_S))
                 f_p = self.xp.array(self.polarised_field(phi_S))
                 self.S[:, i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)
         else:
@@ -91,9 +96,9 @@ class Illumination(Base_simulator):
                 xyz = torch.transpose(
                     torch.stack([x, y, torch.zeros(self.npoints, device=self._tdev, dtype=torch.float64)]), 0, 1)
                 e = torch.exp(-1j * (
-                            xyz @ self.rotation(phi_E, self.theta) @ torch.tensor([0, 0, self.k0], dtype=torch.float64,
-                                                                                  device=self._tdev) + p[i] +
-                            self.phase_error[i, astep, pstep]))
+                        xyz @ self.rotation(phi_E, self.theta) @ torch.tensor([0, 0, self.k0], dtype=torch.float64,
+                                                                              device=self._tdev) + p[i] +
+                        self.phase_error[i, astep, pstep]))
                 E[:, i, :] = torch.transpose(torch.stack((e, e, e)), 0, 1)
             F = torch.sum(self.S * E, axis=1, dtype=torch.complex64)
             ill = torch.sum(F * torch.conj(F), axis=1)  # the dot multiplication
@@ -128,6 +133,3 @@ class RaHexIll(Illumination):
         self._beam_a = np.pi / 2  # angle between beam1 and beam2, beam2 and beam3
         self._nbands = 3
         super().__init__()
-
-
-
