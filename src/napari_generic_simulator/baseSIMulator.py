@@ -10,7 +10,6 @@ import tifffile
 
 try:
     import cupy as cp
-
     print('cupy imported')
     import_cp = True
 except:
