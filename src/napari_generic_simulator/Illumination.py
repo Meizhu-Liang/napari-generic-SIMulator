@@ -21,11 +21,11 @@ class Illumination(Base_simulator):
                                           (self._n_beams, self._angleStep, self._phaseStep))
             self.phase_error[0] = 0.0
             self.phase_error[:, :, 0] = 0.0
-            print(f'phase errors:{self.phase_error}')
+            # print(f'phase errors:{self.phase_error}')
             self.angle_error = np.reshape((2 * np.random.random(self._angleStep * self._n_beams) - 1), (self._n_beams, self._angleStep))
             self.angle_error[0] = 0.0
             self.angle_error[:, 0] = 0.0
-            print(f'angle errors:{self.angle_error}')
+            # print(f'angle errors:{self.angle_error}')
         else:
             self.phase_error = np.zeros((self._n_beams, self._angleStep, self._phaseStep))
             self.angle_error = np.zeros((self._n_beams, self._angleStep))
