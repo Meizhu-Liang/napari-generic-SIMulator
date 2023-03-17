@@ -3,9 +3,10 @@ Classes to calculate SIM illumination.
 """
 __author__ = "Meizhu Liang @Imperial College London"
 
-from .baseSIMulator import Base_simulator
+from .baseSIMulator import Base_simulator, import_torch
 import numpy as np
-import torch
+if import_torch:
+    import torch
 from numpy import cos, sin
 
 
