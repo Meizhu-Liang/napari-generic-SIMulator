@@ -257,9 +257,9 @@ class Base_simulator:
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
                 intensityz = intensityz + excitation3[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
                                                            abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
-            if self.pol == 'axial':
+            if self.pol == 'r':
                 intensity = intensityz  # for axially polarised illumination
-            elif self.pol == 'circular':
+            elif self.pol == 'c':
                 # dipoles that re-orient between excitation and emmission and maybe for circular polarised illumination
                 intensity = (intensityx + intensityy + intensityz) / 3
             else:
