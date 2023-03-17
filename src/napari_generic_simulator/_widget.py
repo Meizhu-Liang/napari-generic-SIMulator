@@ -8,7 +8,8 @@ from enum import Enum
 from .baseSIMulator import import_cp, import_torch, torch_GPU
 from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
 from .conSIMulator import ConSim_simulator
-from .Illumination import ConIll, HexIll, RaHexIll
+from .baseSIMulator import ConIll, HexIll, RaHexIll
+# from .Illumination import ConIll, HexIll, RaHexIll
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons, PushButton
