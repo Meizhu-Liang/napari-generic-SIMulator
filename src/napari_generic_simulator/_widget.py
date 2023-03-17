@@ -529,8 +529,8 @@ class SIMulator(QWidget):
         self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select sample layer'),
                                     w_parameters, w_cal, w_save_and_print, self.messageBox],
                            labels=None)
-        print_tif = PushButton(text='print_tags')
-
-        @print_tif.clicked.connect
-        def on_print_tif_click():
-            self.print_tif_tags
+        # print_tif = PushButton(text='print_tags')
+        #
+        # @print_tif.clicked.connect
+        # def on_print_tif_click():
+        #     self.print_tif_tags
