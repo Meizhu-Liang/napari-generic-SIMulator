@@ -134,12 +134,11 @@ class Base_simulator:
                 # get illumination from the child class
 
                 if (self.acc == 0) or (self.acc == 3):
-                    ill = self.xp.array(self._ill_test(self.points[:,0], self.points[:,1], pstep, astep),
-                                        dtype=self.xp.single)
                     x = self.xp.array(self.points[:, 0], dtype=self.xp.single)
                     y = self.xp.array(self.points[:, 1], dtype=self.xp.single)
                     z = self.xp.array(self.points[:, 2], dtype=self.xp.single)
-
+                    ill = self.xp.array(self._ill_test(x, y, pstep, astep),
+                                        dtype=self.xp.single)
                     px = self.xp.exp(1j * kxy[self.xp.newaxis, :] * x[:, self.xp.newaxis])
                     py = self.xp.exp(1j * kxy[self.xp.newaxis, :] * y[:, self.xp.newaxis])
                     pz = self.xp.exp(1j * kz[self.xp.newaxis, :] * z[:, self.xp.newaxis])
@@ -149,7 +148,7 @@ class Base_simulator:
                     y = torch.tensor(self.points[:, 1], dtype=torch.float32, device=self._tdev)
                     z = torch.tensor(self.points[:, 2], dtype=torch.float32, device=self._tdev)
                     ill = torch.tensor(self._ill_test(self.points[:,0], self.points[:,1], pstep, astep),
-                                       dtype=torch.float32)
+                                       dtype=torch.float32, device=self._tdev)
                     px = torch.exp(1j * kxy[None, :] * x[:, None])
                     py = torch.exp(1j * kxy[None, :] * y[:, None])
                     pz = torch.exp(1j * kz[None, :] * z[:, None])
