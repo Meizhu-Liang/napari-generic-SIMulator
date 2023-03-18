@@ -5,6 +5,7 @@ Some calculations are adapted by the work by Mark Neil @Imperial College London
 __author__ = "Meizhu Liang @Imperial College London"
 
 import numpy as np
+import opt_einsum as oe
 import time
 import tifffile
 
@@ -138,26 +139,38 @@ class Base_simulator:
                 ill = self._ill_test(self.x, self.y, pstep, astep)
                 if (self.acc == 0) or (self.acc == 3):
                     px = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.x[:, self.xp.newaxis],
-                                                        dtype=self.xp.single))[:, self.xp.newaxis, :]
+                                                        dtype=self.xp.single))#[:, self.xp.newaxis, :]
                     py = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.y[:, self.xp.newaxis],
-                                                        dtype=self.xp.single))[:, :, self.xp.newaxis]
+                                                        dtype=self.xp.single))#[:, :, self.xp.newaxis]
                     pz = self.xp.exp(1j * self.xp.array(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis],
-                                                        dtype=self.xp.single)) * ill[:, self.xp.newaxis]
+                                                        dtype=self.xp.single)) #* ill[:, self.xp.newaxis]
                     # self.phasetilts[isteps, :, :, :] = self.xp.sum((px * py)[:, self.xp.newaxis, :, :] * pz[:, :, self.xp.newaxis, self.xp.newaxis], axis=0)
-                    self.phasetilts[isteps, :, :, :] = self.xp.einsum('i...,i...', (px * py)[:, self.xp.newaxis, :, :], pz[:, :, self.xp.newaxis, self.xp.newaxis])
+                    # self.phasetilts[isteps, :, :, :] = self.xp.einsum('i...,i...', (px * py)[:, self.xp.newaxis, :, :],
+                    #                                                   pz[:, :, self.xp.newaxis, self.xp.newaxis])
+                    plan = self.xp.einsum_path('i,il,ik,ij->jkl', ill, px, py, pz)
+                    print(plan)
+                    # path_info = oe.contract_path('i,il,ik,ij->jkl', ill, px, py, pz)
+                    # print(path_info)
+                    self.phasetilts[isteps, :, :, :] = oe.contract('i,il,ik,ij->jkl', ill, px, py, pz)
                 else:
                     self.x = torch.tensor(self.points[:, 0], device=self._tdev)
                     self.y = torch.tensor(self.points[:, 1], device=self._tdev)
                     z = torch.tensor(self.points[:, 2], device=self._tdev)
                     ill = torch.tensor(ill, dtype=torch.complex64, device=self._tdev)
-                    px = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.x[:, None], device=self._tdev))[:,
-                         None, :]
-                    py = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.y[:, None], device=self._tdev))[:, :,
-                         None]
-                    pz = torch.exp(1j * torch.tensor(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], device=self._tdev)) * ill[:, None]
+                    # px = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.x[:, None], device=self._tdev))[:,
+                    #      None, :]
+                    # py = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.y[:, None], device=self._tdev))[:, :,
+                    #      None]
+                    # pz = torch.exp(1j * torch.tensor(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], device=self._tdev)) * ill[:, None]
+                    #
+                    px = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.x[:, None], device=self._tdev))
+                    py = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.y[:, None], device=self._tdev))
+                    pz = torch.exp(1j * torch.tensor(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], device=self._tdev))
 
-                    self.phasetilts[isteps, :, :, :] = torch.einsum('i...,i...', (px * py)[:, None, :, :],
-                                                                    pz[:, :, None, None])
+                    # self.phasetilts[isteps, :, :, :] = torch.einsum('i...,i...', (px * py)[:, None, :, :],
+                    #                                                 pz[:, :, None, None])
+                    # self.phasetilts[isteps, :, :, :] = torch.einsum('i,il,ik,ij->jkl', ill, px, py, pz)
+                    self.phasetilts[isteps, :, :, :] = oe.contract('i,il,ik,ij->jkl', ill, px, py, pz)
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 

@@ -68,7 +68,7 @@ class Illumination(Base_simulator):
                                    self.phase_error[i, astep, pstep]))
             E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
         F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)
-        ill = self.xp.sum(F * self.xp.conjugate(F), axis=1)  # the dot multiplication
+        ill = self.xp.sum(F * self.xp.conjugate(F), axis=1).real  # the dot multiplication
         return ill
 
 
