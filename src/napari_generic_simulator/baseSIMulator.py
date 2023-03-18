@@ -100,12 +100,12 @@ class Base_simulator:
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
         if (self.acc == 0) or (self.acc == 3):
-            self.kxy = self.xp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=self.xp.single)
-            self.kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
+            kxy = self.xp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=self.xp.single)
+            kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
         else:
-            self.kxy = torch.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy,
+            kxy = torch.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy,
                                     dtype=torch.float32, device=self._tdev)
-            self.kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
+            kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
                                    dtype=torch.float32, device=self._tdev)
 
         if (self.acc == 0) or (self.acc == 3):
@@ -131,45 +131,28 @@ class Base_simulator:
                     yield f'Phase tilts calculation: {prog:.1f}% done'
                 itcount += 1
 
-                self.x = self.xp.array(self.points[:, 0])
-                self.y = self.xp.array(self.points[:, 1])
-                z = self.xp.array(self.points[:, 2])
-
                 # get illumination from the child class
-                ill = self._ill_test(self.x, self.y, pstep, astep)
+
                 if (self.acc == 0) or (self.acc == 3):
-                    px = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.x[:, self.xp.newaxis],
-                                                        dtype=self.xp.single))#[:, self.xp.newaxis, :]
-                    py = self.xp.exp(1j * self.xp.array(self.kxy[self.xp.newaxis, :] * self.y[:, self.xp.newaxis],
-                                                        dtype=self.xp.single))#[:, :, self.xp.newaxis]
-                    pz = self.xp.exp(1j * self.xp.array(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis],
-                                                        dtype=self.xp.single)) #* ill[:, self.xp.newaxis]
-                    # self.phasetilts[isteps, :, :, :] = self.xp.sum((px * py)[:, self.xp.newaxis, :, :] * pz[:, :, self.xp.newaxis, self.xp.newaxis], axis=0)
-                    # self.phasetilts[isteps, :, :, :] = self.xp.einsum('i...,i...', (px * py)[:, self.xp.newaxis, :, :],
-                    #                                                   pz[:, :, self.xp.newaxis, self.xp.newaxis])
-                    plan = self.xp.einsum_path('i,il,ik,ij->jkl', ill, px, py, pz)
-                    print(plan)
-                    # path_info = oe.contract_path('i,il,ik,ij->jkl', ill, px, py, pz)
-                    # print(path_info)
+                    ill = self.xp.array(self._ill_test(self.points[:,0], self.points[:,1], pstep, astep),
+                                        dtype=self.xp.single)
+                    x = self.xp.array(self.points[:, 0], dtype=self.xp.single)
+                    y = self.xp.array(self.points[:, 1], dtype=self.xp.single)
+                    z = self.xp.array(self.points[:, 2], dtype=self.xp.single)
+
+                    px = self.xp.exp(1j * kxy[self.xp.newaxis, :] * x[:, self.xp.newaxis])
+                    py = self.xp.exp(1j * kxy[self.xp.newaxis, :] * y[:, self.xp.newaxis])
+                    pz = self.xp.exp(1j * kz[self.xp.newaxis, :] * z[:, self.xp.newaxis])
                     self.phasetilts[isteps, :, :, :] = oe.contract('i,il,ik,ij->jkl', ill, px, py, pz)
                 else:
-                    self.x = torch.tensor(self.points[:, 0], device=self._tdev)
-                    self.y = torch.tensor(self.points[:, 1], device=self._tdev)
-                    z = torch.tensor(self.points[:, 2], device=self._tdev)
-                    ill = torch.tensor(ill, dtype=torch.complex64, device=self._tdev)
-                    # px = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.x[:, None], device=self._tdev))[:,
-                    #      None, :]
-                    # py = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.y[:, None], device=self._tdev))[:, :,
-                    #      None]
-                    # pz = torch.exp(1j * torch.tensor(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], device=self._tdev)) * ill[:, None]
-                    #
-                    px = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.x[:, None], device=self._tdev))
-                    py = torch.exp(1j * torch.tensor(self.kxy[self.xp.newaxis, :] * self.y[:, None], device=self._tdev))
-                    pz = torch.exp(1j * torch.tensor(self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis], device=self._tdev))
-
-                    # self.phasetilts[isteps, :, :, :] = torch.einsum('i...,i...', (px * py)[:, None, :, :],
-                    #                                                 pz[:, :, None, None])
-                    # self.phasetilts[isteps, :, :, :] = torch.einsum('i,il,ik,ij->jkl', ill, px, py, pz)
+                    x = torch.tensor(self.points[:, 0], dtype=torch.float32, device=self._tdev)
+                    y = torch.tensor(self.points[:, 1], dtype=torch.float32, device=self._tdev)
+                    z = torch.tensor(self.points[:, 2], dtype=torch.float32, device=self._tdev)
+                    ill = torch.tensor(self._ill_test(self.points[:,0], self.points[:,1], pstep, astep),
+                                       dtype=torch.float32)
+                    px = torch.exp(1j * kxy[None, :] * x[:, None])
+                    py = torch.exp(1j * kxy[None, :] * y[:, None])
+                    pz = torch.exp(1j * kz[None, :] * z[:, None])
                     self.phasetilts[isteps, :, :, :] = oe.contract('i,il,ik,ij->jkl', ill, px, py, pz)
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
