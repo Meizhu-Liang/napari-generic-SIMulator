@@ -229,7 +229,7 @@ class Base_simulator:
         fx3 = self.xp.sqrt(self.k0 / kz) * kx / self.k0 * e_in
         fy3 = self.xp.sqrt(self.k0 / kz) * ky / self.k0 * e_in
 
-        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+        for z in np.arange(-self.zrange, self.zrange, self.dzn):
             Exx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx1 * np.exp(1j * z * kz)))  # x-polarised field at camera for x-oriented dipole
             Exy = self.xp.fft.fftshift(self.xp.fft.ifft2(fy1 * np.exp(1j * z * kz)))  # y-polarised field at camera for x-oriented dipole
             Eyx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx2 * np.exp(1j * z * kz)))  # x-polarised field at camera for y-oriented dipole
@@ -246,13 +246,13 @@ class Base_simulator:
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
                 intensityz = intensityz + excitation3[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
                                                            abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
-            if self.pol == 'r':
-                intensity = intensityz  # for axially polarised illumination
-            elif self.pol == 'c':
+            # if self.pol == 'r':
+            #     intensity = intensityz  # for axially polarised illumination
+            # elif self.pol == 'c':
                 # dipoles that re-orient between excitation and emmission and maybe for circular polarised illumination
-                intensity = (intensityx + intensityy + intensityz) / 3
-            else:
-                intensity = intensityx + intensityy  # for in plane illumination
+            intensity = (intensityx + intensityy + intensityz) / 3
+            # else:
+            #     intensity = intensityx + intensityy  # for in plane illumination
             psf[nz, :, :] = intensity * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
 
             nz = nz + 1
@@ -269,7 +269,7 @@ class Base_simulator:
         nz = 0
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
-        for z in np.arange(-self.zrange, self.zrange - self.dzn, self.dzn):
+        for z in np.arange(-self.zrange, self.zrange, self.dzn):
             c = (np.exp(
                 1j * (z * self.n * 2 * np.pi / self.det_wavelength *
                       np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2)))) * pupil
@@ -292,24 +292,20 @@ class Base_simulator:
         self.psffile = np.sum(psf, axis=(1, 2))
 
         # Calculating 3d otf
-        psf = self.xp.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
-        self.psf_z0 = psf[int(self.Nzn / 2 + 5), :, :]  # psf at z=0
+        self.psf = psf  # 3d psf for display
         if self.acc == 3:
-            self.psf_z0 = cp.asnumpy(self.psf_z0)
+            self.psf = cp.asnumpy(self.psf)
+        psf = self.xp.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
         otf = self.xp.fft.fftn(psf)
         aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
         if self.acc == 3:
             aotf = cp.asnumpy(aotf)
         m = max(aotf.flatten())
-        aotf_z = []
-        for x in range(self.Nzn):
-            aotf_z.append(np.sum(aotf[x]))
-        self.aotf_x = np.log(
-            aotf[:, int(self.Nn / 2), :].squeeze() + 0.0001)  # cross section perpendicular to x axis
+
+        self.aotf = np.log(aotf + aotf.max()/1000)  # 3d aotx with log
         if self.acc == 3:
-            self.aotf_x = cp.asnumpy(self.aotf_x)
-        # aotf_x is the same as aotf_y
-        # self.aotf_y = self.xp.log(aotf[:, :, int(self.Nn / 2)].squeeze() + 0.0001)
+            self.aotf = cp.asnumpy(self.aotf)
+
         yield "3d otf calculated"
 
         self.points[:, 0] -= self.xdrift * self.tpoints / 2000

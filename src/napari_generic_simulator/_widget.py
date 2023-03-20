@@ -19,7 +19,7 @@ import open3d as o3d
 
 
 class Samples(Enum):
-    SPHEROID = 500
+    SPHEROIDAL = 500
     FILAMENTS = 10
 
 
@@ -113,7 +113,7 @@ class PointCloud(QWidget):
     def gen_pc(self):
         if self.w_samples.value == Samples.FILAMENTS:
             self.pc = self.point_cloud_fil(self.fil_n.value, self.fil_len.value, self.fil_step.value)
-        elif self.w_samples.value == Samples.SPHEROID:
+        elif self.w_samples.value == Samples.SPHEROIDAL:
             self.pc = self.point_cloud(self.sph_points.value, self.sph_rad.value, self.sph_dep.value)
         print('Point cloud generated')
         if hasattr(self, 'pc'):
@@ -146,11 +146,11 @@ class PointCloud(QWidget):
 
     def cloud_widgets(self):
         """Creates a widget containing all small widgets"""
-        self.w_samples = RadioButtons(value=Samples.SPHEROID, choices=Samples)
+        self.w_samples = RadioButtons(value=Samples.SPHEROIDAL, choices=Samples)
 
-        self.sph_points = SpinBox(value=500, step=50, label='spheroid_points')
-        self.sph_rad = SpinBox(value=5, label='spheroid_radius (μm)')
-        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='spheroid_depth (μm)')
+        self.sph_points = SpinBox(value=500, step=50, label='spheroidal_points')
+        self.sph_rad = SpinBox(value=5, label='spheroidal_radius (μm)')
+        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='spheroidal_depth (μm)')
         self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad])
 
         self.fil_n = SpinBox(value=5, max=100, label='filament_n')
@@ -357,6 +357,7 @@ class SIMulator(QWidget):
         self.points = -layer.data[:, ::-1]
         self.npoints = self.points.shape[0]
         self.messageBox.value = f'Selected sample layer: {layer.name}'
+        self.get_results()
 
     def get_results(self):
         if not hasattr(self, 'points'):
@@ -434,50 +435,25 @@ class SIMulator(QWidget):
                 except Exception as e:
                     print(str(e))
 
-        show_raw_img_sum = PushButton(text='raw image sum')
-
-        @show_raw_img_sum.clicked.connect
-        def on_raw_image_sum_click():
-            if hasattr(self, 'sim'):
-                if hasattr(self.sim, 'img_sum_z'):
-                    if self.used_par_list != self.par_list():
-                        self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
-                    else:
-                        try:
-                            self._viewer.add_image(self.sim.img_sum_z,
-                                                   scale=(self.pixel_size.value / self.magnification.value,
-                                                          self.pixel_size.value / self.magnification.value),
-                                                   translate=(
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                                   name='raw image sum along z axis')
-                            self._viewer.add_image(self.sim.img_sum_x,
-                                                   scale=(self.pixel_size.value / self.magnification.value,
-                                                          self.pixel_size.value / self.magnification.value),
-                                                   translate=(
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                                   name='raw image sum along x (or y) axis')
-                        except Exception as e:
-                            print(str(e))
-
         show_psf = PushButton(text='show_psf')
 
         @show_psf.clicked.connect
         def on_show_psf_click():
             if hasattr(self, 'sim'):
-                if hasattr(self.sim, 'psf_z0'):
+                if hasattr(self.sim, 'psf'):
                     if self.used_par_list != self.par_list():
                         self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                     else:
                         try:
-                            self._viewer.add_image(self.sim.psf_z0,
-                                                   scale=(self.pixel_size.value / self.magnification.value,
-                                                          self.pixel_size.value / self.magnification.value),
+                            self._viewer.add_image(self.sim.psf,
+                                                   scale=(self.sim.dzn,
+                                                          self.sim.dxn,
+                                                          self.sim.dxn),
                                                    translate=(
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                                   name='PSF in x-y plane')
+                                                       -self.sim.dzn * self.sim.Nzn / 2,
+                                                       -self.sim.dxn * self.sim.Nn / 2,
+                                                       -self.sim.dxn * self.sim.Nn / 2),
+                                                   name='3d-PSF')
                         except Exception as e:
                             print(e)
 
@@ -487,10 +463,13 @@ class SIMulator(QWidget):
         def on_print_tif_click():
             """Prints tags of the selected tif image"""
             try:
-                frames = tifffile.TiffFile(self._viewer.layers.selection.active.source.path)
-                page = frames.pages[0]
-                # Print file description
-                print(f'==={self._viewer.layers.selection.active.name}.tif===\n' + page.tags["ImageDescription"].value)
+                if self._viewer.layers.selection.active.source.path is None:
+                    print(self._viewer.layers.selection.active.metadata)
+                else:
+                    frames = tifffile.TiffFile(self._viewer.layers.selection.active.source.path)
+                    page = frames.pages[0]
+                    # Print file description
+                    print(f'==={self._viewer.layers.selection.active.name}.tif===\n' + page.tags["ImageDescription"].value)
                 self.messageBox.value = 'Parameters printed'
             except Exception as e:
                 print(str(e))
@@ -499,18 +478,20 @@ class SIMulator(QWidget):
         @show_otf.clicked.connect
         def on_show_otf_click():
             if hasattr(self, 'sim'):
-                if hasattr(self.sim, 'aotf_x'):
+                if hasattr(self.sim, 'aotf'):
                     if self.used_par_list != self.par_list():
                         self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                     else:
                         try:
-                            self._viewer.add_image(self.sim.aotf_x,
-                                                   scale=(self.pixel_size.value / self.magnification.value,
-                                                          self.pixel_size.value / self.magnification.value),
+                            self._viewer.add_image(self.sim.aotf,
+                                                   scale=(self.sim.dzn,
+                                                          self.sim.dxn,
+                                                          self.sim.dxn),
                                                    translate=(
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                       -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                                   name='OTF perpendicular to x')
+                                                       -self.sim.dzn * self.sim.Nzn / 2,
+                                                       -self.sim.dxn * self.sim.Nn / 2,
+                                                       -self.sim.dxn * self.sim.Nn / 2),
+                                                   name='3d-OTF')
                         except Exception as e:
                             print(str(e))
 
@@ -535,10 +516,10 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
-        w_save_and_print = Container(widgets=[Container(widgets=[save_tif_with_tags, show_psf, show_otf]),
-                                              Container(widgets=[print_tif, show_raw_img_sum, show_illumination])],
+        w_save_and_print = Container(widgets=[Container(widgets=[save_tif_with_tags, print_tif]),
+                                              Container(widgets=[show_psf, show_otf, show_illumination])],
                                      layout='horizontal', labels=None)
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[magicgui(self.select_layer, call_button='Select sample layer'),
-                                    w_parameters, w_cal, w_save_and_print, self.messageBox],
+        self.w = Container(widgets=[w_parameters, magicgui(self.select_layer, call_button='Calculate results'),
+                                    w_save_and_print, self.messageBox],
                            labels=None)
