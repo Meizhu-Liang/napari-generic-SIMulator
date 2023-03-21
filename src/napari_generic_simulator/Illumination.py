@@ -58,20 +58,23 @@ class Illumination(Base_simulator):
             f_p = self.xp.array(self.polarised_field(phi_S))
             self.S[:, i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)
 
-    def _ill_test(self, x, y, pstep, astep):
+    def _ill_obj(self, x, y, pstep, astep):
+        """Illumination intensity applied on the object"""
         ill = self.xp.sum(self._ill_test_vec(x, y, pstep, astep), axis=1)  # take real part and round to 15 decimals
         return ill
 
-    def _ill_test_vec(self, x, y, pstep, astep):
+    def _ill_obj_vec(self, x, y, pstep, astep):
+        """Vectorised illumination intensity applied on the object"""
         p = [0, pstep * 2 * np.pi / self._phaseStep, pstep * (-4) * np.pi / self._phaseStep]
-        E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
+        E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)  # exponential terms of field
         for i in range(self._n_beams):
             phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep + self.angle_error[i, astep]
             xyz = self.xp.transpose(self.xp.stack([x, y, self.xp.zeros(self.npoints)]))
             e = self.xp.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ self.xp.array([0, 0, self.k0]) + p[i] +
                                    self.phase_error[i, astep, pstep]))
             E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
-        F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)
+        F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)  # field of illumination
+        # to calculate intensity: ill = F @ F_conjugate
         ill = (F * self.xp.conjugate(F)).real.round(15)  # take real part and round to 15 decimals
         return ill
 
