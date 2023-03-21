@@ -130,8 +130,7 @@ class Base_simulator:
         total_its = self._angleStep * self._phaseStep * self.npoints
         lastProg = 0
 
-        for astep_1 in range(1, self._angleStep + 1):
-            astep = np.mod(astep_1, self._angleStep)
+        for astep in range(self._angleStep):
             self.jones_vectors(astep)
             for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
