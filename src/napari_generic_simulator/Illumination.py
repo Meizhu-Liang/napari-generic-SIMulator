@@ -59,6 +59,10 @@ class Illumination(Base_simulator):
             self.S[:, i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)
 
     def _ill_test(self, x, y, pstep, astep):
+        ill = self.xp.sum(self._ill_test_vec(x, y, pstep, astep), axis=1)  # take real part and round to 15 decimals
+        return ill
+
+    def _ill_test_vec(self, x, y, pstep, astep):
         p = [0, pstep * 2 * np.pi / self._phaseStep, pstep * (-4) * np.pi / self._phaseStep]
         E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
         for i in range(self._n_beams):
@@ -68,9 +72,8 @@ class Illumination(Base_simulator):
                                    self.phase_error[i, astep, pstep]))
             E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
         F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)
-        ill = self.xp.sum(F * self.xp.conjugate(F), axis=1).real  # the dot multiplication
+        ill = (F * self.xp.conjugate(F)).real.round(15)  # take real part and round to 15 decimals
         return ill
-
 
 class ConIll(Illumination):
     def __init__(self):

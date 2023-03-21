@@ -186,7 +186,8 @@ class Pol(Enum):
 
 class Psf_calc(Enum):
     SCALAR = 0
-    VECTOR = 1
+    VEC_FLEX = 1
+    VEC_RIGID = 2
 
 
 class Accel(Enum):
@@ -300,8 +301,10 @@ class SIMulator(QWidget):
             if self.Acceleration.value == Accel.CUPY:
                 self.sim.acc = 3
 
-        if self.Psf.value == Psf_calc.VECTOR:
-            self.sim.psf_calc = 'vector'
+        if self.Psf.value == Psf_calc.VEC_RIGID:
+            self.sim.psf_calc = 'vector_rigid'
+        elif self.Psf.value == Psf_calc.VEC_FLEX:
+                self.sim.psf_calc = 'vector_flexible'
         elif self.Psf.value == Psf_calc.SCALAR:
             self.sim.psf_calc = 'scalar'
 
@@ -519,10 +522,9 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
-        w_save_and_print = Container(widgets=[Container(widgets=[save_tif_with_tags, print_tif]),
-                                              Container(widgets=[show_psf, show_otf, show_illumination])],
-                                     layout='horizontal', labels=None)
+        w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif], layout='horizontal')
+        w_show = Container(widgets=[show_psf, show_otf, show_illumination], layout='horizontal')
         self.messageBox = LineEdit(value='Messages')
         self.w = Container(widgets=[w_parameters, magicgui(self.select_layer, call_button='Calculate results'),
-                                    w_save_and_print, self.messageBox],
+                                    w_save_and_print, w_show, self.messageBox],
                            labels=None)
