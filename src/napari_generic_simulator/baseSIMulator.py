@@ -49,8 +49,7 @@ class Base_simulator:
     fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
     drift = 0
-    defocus = 0  # de-focus aberration in um
-    spherical = 0
+    spherical = 0  # spherical aberration in um
     sph_abb = 0
     add_error = False
 
@@ -272,7 +271,7 @@ class Base_simulator:
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
             c = (np.exp(
                 1j * (z * self.n * 2 * np.pi / self.det_wavelength *
-                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2)))) * pupil
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2) + self.spherical))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane

@@ -17,7 +17,7 @@ The calculation can be GPU-accelerated if the CUPY (tested with cupy 8.3.0) is i
 Currently applies to:
 - conventional 2-beam SIM data with 3 angles and 3 phases
 - 3-beam hexagonal SIM data with 7 phases, as described in the paper
-- 3-beam hexagonal SIM data with 7 phases at right-angles
+- 3-beam hexagonal SIM data with 5 phases at right-angles
 
 ----------------------------------
 

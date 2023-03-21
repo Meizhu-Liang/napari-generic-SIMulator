@@ -186,7 +186,7 @@ class Pol(Enum):
 
 class Psf_calc(Enum):
     SCALAR = 0
-    VECTOR = 1
+    VECTOR_in_development = 1
 
 
 class Accel(Enum):
@@ -250,7 +250,6 @@ class SIMulator(QWidget):
         self.fwhmz = FloatSpinBox(value=3.0, name='spin', label='fwhmz(μm)', min=0.0, max=10.0)
         self.random_seed = SpinBox(value=123, name='spin', label='random seed')
         self.drift = FloatSpinBox(value=0.0, name='spin', label='drift(nm)', min=0.0, max=1000.0, step=5)
-        self.defocus = FloatSpinBox(value=0.0, name='spin', label='de-focus(μm)', min=-10.0, max=10, step=5)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
         self.lable = Label(value='aberration')
 
@@ -260,7 +259,7 @@ class SIMulator(QWidget):
                 self.Psf.value, self.N.value, self.pixel_size.value, self.magnification.value, self.ill_NA.value,
                 self.det_NA.value, self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
                 self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
-                self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value, self.sph_abb.value]
+                self.fwhmz.value, self.random_seed.value, self.drift.value, self.sph_abb.value]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -300,7 +299,7 @@ class SIMulator(QWidget):
             if self.Acceleration.value == Accel.CUPY:
                 self.sim.acc = 3
 
-        if self.Psf.value == Psf_calc.VECTOR:
+        if self.Psf.value == Psf_calc.VECTOR_in_development:
             self.sim.psf_calc = 'vector'
         elif self.Psf.value == Psf_calc.SCALAR:
             self.sim.psf_calc = 'scalar'
@@ -325,7 +324,6 @@ class SIMulator(QWidget):
         self.sim.fwhmz = self.fwhmz.value
         self.sim.drift = self.drift.value
         self.sim.random_seed = self.random_seed.value
-        self.sim.defocus = self.defocus.value
         self.sim.sph_abb = self.sph_abb.value
         self.used_par_list = [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
                               self.Psf.value,
@@ -333,8 +331,7 @@ class SIMulator(QWidget):
                               self.det_NA.value,
                               self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
                               self.zrange.value, self.tpoints.value, self.xdrift.value, self.zdrift.value,
-                              self.fwhmz.value, self.random_seed.value, self.drift.value, self.defocus.value,
-                              self.sph_abb.value]
+                              self.fwhmz.value, self.random_seed.value, self.drift.value, self.sph_abb.value]
 
     def start_simulator(self):
         """Starts the raw images generators and create the frequency space"""
@@ -386,8 +383,7 @@ class SIMulator(QWidget):
                                                  'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
                                                  'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
                                                  'random seed': self.random_seed.value, 'Brownian': self.drift.value,
-                                                 'defocus': self.defocus.value, 'sph_abb': self.sph_abb.value
-                                                 })
+                                                 'sph_abb': self.sph_abb.value})
                 current_step = list(self._viewer.dims.current_step)
                 for dim_idx in [-3, -2, -1]:
                     current_step[dim_idx] = data.shape[dim_idx] // 2
@@ -418,8 +414,7 @@ class SIMulator(QWidget):
                                    self.pixel_size, self.ill_NA, self.det_NA, self.n,
                                    self.ill_wavelength, self.det_wavelength]),
                 Container(widgets=[self.magnification, self.zrange, self.tpoints, self.xdrift,
-                                   self.zdrift, self.fwhmz, self.random_seed, self.drift, self.defocus,
-                                   self.sph_abb])], layout='horizontal')
+                                   self.zdrift, self.fwhmz, self.random_seed, self.drift, self.sph_abb])], layout='horizontal')
         w_cal = magicgui(self.get_results, call_button='Calculate raw image stack', auto_call=False)
 
         # 'save and print' widgets
