@@ -303,7 +303,7 @@ class SIMulator(QWidget):
 
         if self.Psf.value == Psf_calc.VEC_RIGID:
             self.sim.psf_calc = 'vector_rigid'
-        elif self.Psf.value == Psf_calc.VEC_FLEX:
+        elif self.Psf.value == Psf_calc.VEC_FLEXI:
                 self.sim.psf_calc = 'vector_flexible'
         elif self.Psf.value == Psf_calc.SCALAR:
             self.sim.psf_calc = 'scalar'
