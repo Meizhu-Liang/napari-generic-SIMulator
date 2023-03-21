@@ -186,7 +186,7 @@ class Pol(Enum):
 
 class Psf_calc(Enum):
     SCALAR = 0
-    VEC_FLEX = 1
+    VEC_FLEXI = 1
     VEC_RIGID = 2
 
 
