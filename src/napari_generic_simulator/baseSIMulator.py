@@ -344,12 +344,13 @@ class Base_simulator:
             otf_x = self.xp.fft.fftn(self.xp.fft.fftshift(psf_x, axes=0))  # need to set plane zero as in-focus here
             otf_y = self.xp.fft.fftn(self.xp.fft.fftshift(psf_y, axes=0))  # need to set plane zero as in-focus here
             otf_z = self.xp.fft.fftn(self.xp.fft.fftshift(psf_z, axes=0))  # need to set plane zero as in-focus here
-        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
+        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf, also modulus of otf (MTF)
+        self.aotffile = np.sum(aotf, axis=(1, 2))
         if self.acc == 3:
             aotf = cp.asnumpy(aotf)
         m = max(aotf.flatten())
 
-        self.aotf = np.log(aotf + aotf.max() / 1000)  # 3d aotx with log
+        self.aotf = np.log(aotf + aotf.max() / 1000)  # 3d aotf with log
         if self.acc == 3:
             self.aotf = cp.asnumpy(self.aotf)
 

@@ -60,7 +60,7 @@ class Illumination(Base_simulator):
 
     def _ill_obj(self, x, y, pstep, astep):
         """Illumination intensity applied on the object"""
-        ill = self.xp.sum(self._ill_test_vec(x, y, pstep, astep), axis=1)  # take real part and round to 15 decimals
+        ill = self.xp.sum(self._ill_obj_vec(x, y, pstep, astep), axis=1)  # take real part and round to 15 decimals
         return ill
 
     def _ill_obj_vec(self, x, y, pstep, astep):
