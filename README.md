@@ -48,6 +48,10 @@ To install latest development version :
 1) Open napari and create the viewer.
 
 
+https://user-images.githubusercontent.com/74197598/227493000-3c6e0fc0-7258-468f-ac66-77cd3fc1711a.mp4
+
+
+
 2) Launch the widget in ***Plugin***
     ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img.png)
     ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_1.png)
