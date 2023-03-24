@@ -46,7 +46,6 @@ To install latest development version :
 ## Usage
 
 1) Open napari and create the viewer.
-2) ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/hex.avi)
 
 
 2) Launch the widget in ***Plugin***

@@ -6,4 +6,9 @@ except ImportError:
 __author__ = "Meizhu Liang"
 __email__ = "meizhu.liang18@imperial.ac.uk"
 
-from ._widget import SIMulator
+from ._widget import SIMulator, PointCloud
+
+
+
+
+
