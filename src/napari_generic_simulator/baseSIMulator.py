@@ -11,6 +11,7 @@ import tifffile
 
 try:
     import cupy as cp
+
     print('cupy imported')
     import_cp = True
 except:
@@ -18,6 +19,7 @@ except:
 
 try:
     import torch
+
     print('torch imported')
     import_torch = True
     if torch.has_cuda:
@@ -27,6 +29,7 @@ try:
 except:
     import_torch = False
     torch_GPU = False
+
 
 class Base_simulator:
     points = None
@@ -68,8 +71,9 @@ class Base_simulator:
         oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
         self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
         self.k0 = 2 * np.pi * self.n / (self.ill_wavelength)
-        self.kx, self.ky = self.xp.meshgrid(self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
-                                       self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
+        self.kx, self.ky = self.xp.meshgrid(
+            self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
+            self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
         self.krmax = self.det_NA * self.k0 / self.n
         self.kr2 = self.kx ** 2 + self.ky ** 2
@@ -92,6 +96,22 @@ class Base_simulator:
         if (self.acc == 1) | (self.acc == 2):
             self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
 
+        # pre allocate phasetilts arrays
+        if (self.acc == 0) or (self.acc == 3):
+            if self.psf_calc == 'vector_rigid':
+                self.phasetilts = [self.xp.zeros((3, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
+                                   for i in range(self._nsteps)]
+            else:
+                self.phasetilts = [self.xp.zeros((self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
+                                   for i in range(self._nsteps)]
+        else:
+            if self.psf_calc == 'vector_rigid':
+                self.phasetilts = [torch.zeros(3, self.Nzn, self.Nn, self.Nn, dtype=torch.complex64,
+                                               device=self._tdev) for i in range(self._nsteps)]
+            else:
+                self.phasetilts = [torch.zeros(self.Nzn, self.Nn, self.Nn, dtype=torch.complex64,
+                                               device=self._tdev) for i in range(self._nsteps)]
+
     def phase_tilts(self):
         """Generates phase tilts in frequency space"""
 
@@ -103,15 +123,10 @@ class Base_simulator:
             kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
         else:
             kxy = torch.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy,
-                                    dtype=torch.float32, device=self._tdev)
+                               dtype=torch.float32, device=self._tdev)
             kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
-                                   dtype=torch.float32, device=self._tdev)
+                              dtype=torch.float32, device=self._tdev)
 
-        if (self.acc == 0) or (self.acc == 3):
-            self.phasetilts = self.xp.zeros((self._nsteps, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
-        else:
-            self.phasetilts = torch.zeros(self._nsteps, self.Nzn, self.Nn, self.Nn, dtype=torch.complex64,
-                                          device=self._tdev)
         start_time = time.time()
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
@@ -123,7 +138,7 @@ class Base_simulator:
                 self.points += self.drift * np.random.standard_normal(3) / 1000
                 self.points[:, 0] += self.xdrift / 1000
                 self.points[:, 2] += self.zdrift / 1000
-                isteps = pstep + self._phaseStep * astep  # index of the steps
+                istep = pstep + self._phaseStep * astep  # index of the steps
                 prog = (100 * itcount) // total_its
                 if prog > lastProg + 9:
                     lastProg = prog
@@ -136,22 +151,33 @@ class Base_simulator:
                     x = self.xp.array(self.points[:, 0], dtype=self.xp.single)
                     y = self.xp.array(self.points[:, 1], dtype=self.xp.single)
                     z = self.xp.array(self.points[:, 2], dtype=self.xp.single)
-                    ill = self.xp.array(self._ill_test(x, y, pstep, astep),
-                                        dtype=self.xp.single)
                     px = self.xp.exp(1j * kxy[self.xp.newaxis, :] * x[:, self.xp.newaxis])
                     py = self.xp.exp(1j * kxy[self.xp.newaxis, :] * y[:, self.xp.newaxis])
                     pz = self.xp.exp(1j * kz[self.xp.newaxis, :] * z[:, self.xp.newaxis])
-                    self.phasetilts[isteps, :, :, :] = oe.contract('i,il,ik,ij->jkl', ill, px, py, pz)
+                    if self.psf_calc == 'vector_rigid':
+                        ill = self.xp.array(self._ill_obj_vec(x, y, pstep, astep),
+                                            dtype=self.xp.single)
+                        oe.contract('im,il,ik,ij->mjkl', ill, px, py, pz, out=self.phasetilts[istep])
+                    else:
+                        ill = self.xp.array(self._ill_obj(x, y, pstep, astep),
+                                            dtype=self.xp.single)
+                        oe.contract('i,il,ik,ij->jkl', ill, px, py, pz, out=self.phasetilts[istep])
                 else:
                     x = torch.tensor(self.points[:, 0], dtype=torch.float32, device=self._tdev)
                     y = torch.tensor(self.points[:, 1], dtype=torch.float32, device=self._tdev)
                     z = torch.tensor(self.points[:, 2], dtype=torch.float32, device=self._tdev)
-                    ill = torch.tensor(self._ill_test(self.points[:,0], self.points[:,1], pstep, astep),
-                                       dtype=torch.float32, device=self._tdev)
+
                     px = torch.exp(1j * kxy[None, :] * x[:, None])
                     py = torch.exp(1j * kxy[None, :] * y[:, None])
                     pz = torch.exp(1j * kz[None, :] * z[:, None])
-                    self.phasetilts[isteps, :, :, :] = oe.contract('i,il,ik,ij->jkl', ill, px, py, pz)
+                    if self.psf_calc == 'vector_rigid':
+                        ill = torch.tensor(self._ill_obj_vec(self.points[:, 0], self.points[:, 1], pstep, astep),
+                                           dtype=torch.float32, device=self._tdev)
+                        oe.contract('im,il,ik,ij->mjkl', ill, px, py, pz, out=self.phasetilts[istep])
+                    else:
+                        ill = torch.tensor(self._ill_obj(self.points[:, 0], self.points[:, 1], pstep, astep),
+                                           dtype=torch.float32, device=self._tdev)
+                        oe.contract('i,il,ik,ij->jkl', ill, px, py, pz, out=self.phasetilts[istep])
         self.elapsed_time = time.time() - start_time
         yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
 
@@ -165,52 +191,55 @@ class Base_simulator:
 
         # Calculating psf
         nz = 0
-        psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
+        psf_x = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
+        psf_y = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
+        psf_z = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
 
         # calculate intensity of random arrangement of dipoles excited by a given polarisation s
         # p are the vertices of an dodecahedron
         p0 = self.xp.reshape(self.xp.array([0, 1, 0]), (1, 3))
         p1 = self.xp.reshape(self.xp.array([-0.666666, 0., 0.745353,
-                                  0.666666, 0., -0.745353,
-                                  -0.127322, -0.93417, 0.333332,
-                                  -0.127322, 0.93417, 0.333332,
-                                  0.745355, -0.577349, -0.333332,
-                                  0.745355, 0.577349, -0.333332,
-                                  0.333332, -0.577349, 0.745355,
-                                  0.333332, 0.577349, 0.745355,
-                                  -0.872676, -0.356821, -0.333334,
-                                  -0.872676, 0.356821, -0.333334,
-                                  0.872676, -0.356821, 0.333334,
-                                  0.872676, 0.356821, 0.333334,
-                                  1.46634 * 1e-6, 0., -0.999998,
-                                  -0.745355, -0.577349, 0.333332,
-                                  -0.745355, 0.577349, 0.333332,
-                                  -1.46634 * 1e-6, 0., 0.999998,
-                                  -0.333332, -0.577349, -0.745355,
-                                  -0.333332, 0.577349, -0.745355,
-                                  0.127322, -0.93417, -0.333332,
-                                  0.127322, 0.93417, -0.333332]), (20, 3))
+                                            0.666666, 0., -0.745353,
+                                            -0.127322, -0.93417, 0.333332,
+                                            -0.127322, 0.93417, 0.333332,
+                                            0.745355, -0.577349, -0.333332,
+                                            0.745355, 0.577349, -0.333332,
+                                            0.333332, -0.577349, 0.745355,
+                                            0.333332, 0.577349, 0.745355,
+                                            -0.872676, -0.356821, -0.333334,
+                                            -0.872676, 0.356821, -0.333334,
+                                            0.872676, -0.356821, 0.333334,
+                                            0.872676, 0.356821, 0.333334,
+                                            1.46634 * 1e-6, 0., -0.999998,
+                                            -0.745355, -0.577349, 0.333332,
+                                            -0.745355, 0.577349, 0.333332,
+                                            -1.46634 * 1e-6, 0., 0.999998,
+                                            -0.333332, -0.577349, -0.745355,
+                                            -0.333332, 0.577349, -0.745355,
+                                            0.127322, -0.93417, -0.333332,
+                                            0.127322, 0.93417, -0.333332]), (20, 3))
         # p2 are the vertices of the same icosahedron in a different orientation
         p2 = self.xp.reshape(self.xp.array([-1.37638, 0., 0.262866,
-                                  1.37638, 0., -0.262866,
-                                  -0.425325, -1.30902, 0.262866,
-                                  -0.425325, 1.30902, 0.262866,
-                                  1.11352, -0.809017, 0.262866,
-                                  1.11352, 0.809017, 0.262866,
-                                  -0.262866, -0.809017, 1.11352,
-                                  -0.262866, 0.809017, 1.11352,
-                                  -0.688191, -0.5, -1.11352,
-                                  -0.688191, 0.5, -1.11352,
-                                  0.688191, -0.5, 1.11352,
-                                  0.688191, 0.5, 1.11352,
-                                  0.850651, 0., -1.11352,
-                                  -1.11352, -0.809017, -0.262866,
-                                  -1.11352, 0.809017, -0.262866,
-                                  -0.850651, 0., 1.11352,
-                                  0.262866, -0.809017, -1.11352,
-                                  0.262866, 0.809017, -1.11352,
-                                  0.425325, -1.30902, -0.262866,
-                                  0.425325, 1.30902, -0.262866]), (20, 3))
+                                            1.37638, 0., -0.262866,
+                                            -0.425325, -1.30902, 0.262866,
+                                            -0.425325, 1.30902, 0.262866,
+                                            1.11352, -0.809017, 0.262866,
+                                            1.11352, 0.809017, 0.262866,
+                                            -0.262866, -0.809017, 1.11352,
+                                            -0.262866, 0.809017, 1.11352,
+                                            -0.688191, -0.5, -1.11352,
+                                            -0.688191, 0.5, -1.11352,
+                                            0.688191, -0.5, 1.11352,
+                                            0.688191, 0.5, 1.11352,
+                                            0.850651, 0., -1.11352,
+                                            -1.11352, -0.809017, -0.262866,
+                                            -1.11352, 0.809017, -0.262866,
+                                            -0.850651, 0., 1.11352,
+                                            0.262866, -0.809017, -1.11352,
+                                            0.262866, 0.809017, -1.11352,
+                                            0.425325, -1.30902, -0.262866,
+                                            0.425325, 1.30902, -0.262866]), (20, 3))
+        # got the flattened array and calculate the square root of the sum of squares
         p2 = p2 / self.xp.linalg.norm(p2[0, :])
 
         p = p2
@@ -229,12 +258,18 @@ class Base_simulator:
         fy3 = self.xp.sqrt(self.k0 / kz) * ky / self.k0 * e_in
 
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
-            Exx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx1 * np.exp(1j * z * kz)))  # x-polarised field at camera for x-oriented dipole
-            Exy = self.xp.fft.fftshift(self.xp.fft.ifft2(fy1 * np.exp(1j * z * kz)))  # y-polarised field at camera for x-oriented dipole
-            Eyx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx2 * np.exp(1j * z * kz)))  # x-polarised field at camera for y-oriented dipole
-            Eyy = self.xp.fft.fftshift(self.xp.fft.ifft2(fy2 * np.exp(1j * z * kz)))  # y-polarised field at camera for y-oriented dipole
-            Ezx = self.xp.fft.fftshift(self.xp.fft.ifft2(fx3 * np.exp(1j * z * kz)))  # x-polarised field at camera for z-oriented dipole
-            Ezy = self.xp.fft.fftshift(self.xp.fft.ifft2(fy3 * np.exp(1j * z * kz)))  # y-polarised field at camera for z-oriented dipole
+            Exx = self.xp.fft.fftshift(
+                self.xp.fft.ifft2(fx1 * np.exp(1j * z * kz)))  # x-polarised field at camera for x-oriented dipole
+            Exy = self.xp.fft.fftshift(
+                self.xp.fft.ifft2(fy1 * np.exp(1j * z * kz)))  # y-polarised field at camera for x-oriented dipole
+            Eyx = self.xp.fft.fftshift(
+                self.xp.fft.ifft2(fx2 * np.exp(1j * z * kz)))  # x-polarised field at camera for y-oriented dipole
+            Eyy = self.xp.fft.fftshift(
+                self.xp.fft.ifft2(fy2 * np.exp(1j * z * kz)))  # y-polarised field at camera for y-oriented dipole
+            Ezx = self.xp.fft.fftshift(
+                self.xp.fft.ifft2(fx3 * np.exp(1j * z * kz)))  # x-polarised field at camera for z-oriented dipole
+            Ezy = self.xp.fft.fftshift(
+                self.xp.fft.ifft2(fy3 * np.exp(1j * z * kz)))  # y-polarised field at camera for z-oriented dipole
             intensityx = self.xp.zeros((self.Nn, self.Nn))
             intensityy = self.xp.zeros((self.Nn, self.Nn))
             intensityz = self.xp.zeros((self.Nn, self.Nn))
@@ -244,19 +279,23 @@ class Base_simulator:
                 intensityy = intensityy + excitation2[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
                 intensityz = intensityz + excitation3[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
-                                                           abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
+                                                            abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
             # if self.pol == 'r':
             #     intensity = intensityz  # for axially polarised illumination
             # elif self.pol == 'c':
-                # dipoles that re-orient between excitation and emmission and maybe for circular polarised illumination
-            intensity = (intensityx + intensityy + intensityz) / 3
+            # dipoles that re-orient between excitation and emmission and maybe for circular polarised illumination
+            # intensity = (intensityx + intensityy + intensityz) / 3
             # else:
             #     intensity = intensityx + intensityy  # for in plane illumination
-            psf[nz, :, :] = intensity * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            psf_x[nz, :, :] = intensityx * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            psf_y[nz, :, :] = intensityy * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            psf_z[nz, :, :] = intensityz * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
 
             nz = nz + 1
-        psf = psf * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
-        return psf
+        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
+        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
+        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
+        return psf_x, psf_y, psf_z
 
     def get_scalar_psf(self):
         # use krmax to define the pupil function
@@ -283,8 +322,12 @@ class Base_simulator:
         self.initialise()
 
         # Calculating psf
-        if self.psf_calc == 'vector':
-            psf = self.get_vector_psf()
+        if self.psf_calc == 'vector_rigid':
+            psf_x, psf_y, psf_z = self.get_vector_psf()
+            psf = psf_z  # worst case axial illumination
+        elif self.psf_calc == 'vector_flexible':
+            psf_x, psf_y, psf_z = self.get_vector_psf()
+            psf = psf_x + psf_y + psf_z
         else:
             psf = self.get_scalar_psf()
         yield "psf calculated"
@@ -296,12 +339,17 @@ class Base_simulator:
             self.psf = cp.asnumpy(self.psf)
         psf = self.xp.fft.fftshift(psf, axes=0)  # need to set plane zero as in-focus here
         otf = self.xp.fft.fftn(psf)
-        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf
+        if self.psf_calc == 'vector_rigid':
+            otf_x = self.xp.fft.fftn(self.xp.fft.fftshift(psf_x, axes=0))  # need to set plane zero as in-focus here
+            otf_y = self.xp.fft.fftn(self.xp.fft.fftshift(psf_y, axes=0))  # need to set plane zero as in-focus here
+            otf_z = self.xp.fft.fftn(self.xp.fft.fftshift(psf_z, axes=0))  # need to set plane zero as in-focus here
+        aotf = abs(self.xp.fft.fftshift(otf))  # absolute otf, also modulus of otf (MTF)
+        self.aotffile = np.sum(aotf, axis=(1, 2))
         if self.acc == 3:
             aotf = cp.asnumpy(aotf)
         m = max(aotf.flatten())
 
-        self.aotf = np.log(aotf + aotf.max()/1000)  # 3d aotx with log
+        self.aotf = np.log(aotf + aotf.max() / 1000)  # 3d aotf with log
         if self.acc == 3:
             self.aotf = cp.asnumpy(self.aotf)
 
@@ -323,11 +371,24 @@ class Base_simulator:
             # self.points[:, 2] += self.dzn
             for i in range(self._nsteps):
                 if (self.acc == 0) | (self.acc == 3):
-                    ootf = self.xp.fft.fftshift(otf) * self.phasetilts[i, :, :, :]
+                    if self.psf_calc == 'vector_rigid':
+                        ootf = self.xp.fft.fftshift(otf_x) * self.phasetilts[i][0, :, :, :] + \
+                               self.xp.fft.fftshift(otf_y) * self.phasetilts[i][1, :, :, :] + \
+                               self.xp.fft.fftshift(otf_z) * self.phasetilts[i][2, :, :, :]
+                    else:
+                        ootf = self.xp.fft.fftshift(otf) * self.phasetilts[i]
                     img[tplane, :, :] = self.xp.abs(
                         self.xp.fft.ifft2(self.xp.sum(ootf, axis=0), (self.N, self.N)))
                 else:
-                    ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i, :, :, :]
+                    if self.psf_calc == 'vector_rigid':
+                        ootf = torch.fft.fftshift(torch.as_tensor(otf_x, device=self._tdev)) * \
+                               self.phasetilts[i][0, :, :, :] + \
+                               torch.fft.fftshift(torch.as_tensor(otf_y, device=self._tdev)) * \
+                               self.phasetilts[i][1, :, :, :] + \
+                               torch.fft.fftshift(torch.as_tensor(otf_z, device=self._tdev)) * \
+                               self.phasetilts[i][2, :, :, :]
+                    else:
+                        ootf = torch.fft.fftshift(torch.as_tensor(otf, device=self._tdev)) * self.phasetilts[i]
                     img[tplane, :, :] = (torch.abs(
                         torch.fft.ifft2(torch.sum(ootf, axis=0), (self.N, self.N)))).to(torch.float)
                 tplane += 1
@@ -378,7 +439,7 @@ class Base_simulator:
             self.jones_vectors(astep)
             for pstep in range(self._phaseStep):
                 itcount += 1
-                ill_1d = self._ill_test(xarr_l, yarr_l, pstep, astep)
+                ill_1d = self._ill_obj(xarr_l, yarr_l, pstep, astep)
                 illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
 
         for i in range(1, int(self.tpoints) // self._nsteps):
@@ -391,5 +452,3 @@ class Base_simulator:
             return cp.asnumpy(illumination)
         else:
             return illumination
-
-
