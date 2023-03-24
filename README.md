@@ -59,6 +59,8 @@ To install latest development version :
     ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/pc.png)
 
     The point cloud can be displayed in three dimensions, and be saved and loaded as .pcd files.
+  
+    https://user-images.githubusercontent.com/74197598/227589232-9006842b-6706-48b7-9f2b-fe93c6698503.mp4
 
 
 4) Adjust parameters in SIM data generator to simulate a raw image stack.
@@ -69,6 +71,15 @@ To install latest development version :
 
 
 5) Three-dimensional point spread function (**PSF**), optical transfer function (**OTF**) and **illumination** patterns applied in the simulation can be showed by buttons. Note the all of these correspond the generated raw-image stack, so keep the parameters the same before showing the **PSF** (or **OTF** and **illumination**).
+
+    https://user-images.githubusercontent.com/74197598/227585827-64531265-b4fb-48a9-9698-7f263f22d718.mp4 
+    
+    
+    https://user-images.githubusercontent.com/74197598/227586957-b76ad56e-44d5-4d9b-a1cc-2cfd08ca5400.mp4 
+    
+    
+    https://user-images.githubusercontent.com/74197598/227588321-ad3c8f17-1c61-4079-9e34-9b1f990714c1.mp4
+
 
 
 5) The raw image stacks can be then processed by napari-sim-processor (https://www.napari-hub.org/plugins/napari-sim-processor).
