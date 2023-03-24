@@ -3,8 +3,8 @@ display_name: napari generic SIMulator
 contributions:
   commands:
     - id: napari-generic-SIMulator.make_pointcloud_widget
-          python_name: napari_generic_simulator._widget:PointCloud
-          title: Point cloud generator
+      python_name: napari_generic_simulator._widget:PointCloud
+      title: Point cloud generator
     - id: napari-generic-SIMulator.make_simulator_widget
       python_name: napari_generic_simulator._widget:SIMulator
       title: SIM data generator
@@ -14,4 +14,4 @@ contributions:
     - command: napari-generic-SIMulator.make_pointcloud_widget
       display_name: Point cloud generator
     - command: napari-generic-SIMulator.make_simulator_widget
-          display_name: SIM data generator
+      display_name: SIM data generator
