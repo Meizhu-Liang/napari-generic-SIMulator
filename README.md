@@ -43,6 +43,8 @@ To install latest development version :
 
     pip install git+https://github.com/Meizhu-Liang/napari-generic-SIMulator.git
 
+This plugin is compatible with **napari 0.4.17**, older versions of napari would show errors in _interpolation_.
+
 ## Usage
 
 1) Open napari and create the viewer.
