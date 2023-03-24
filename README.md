@@ -48,20 +48,34 @@ To install latest development version :
 1) Open napari and create the viewer.
 
 
-2) Launch the widget in ***Plugin***
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img.png)
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_1.png)
+2) Launch two widgets: **Point cloud generator** and **SIM data generator** in ***Plugin***.
+
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/lauch.png)
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/2widgets.png)
 
 
-3) Adjust the parameters in the widget and calculate the raw-image stack.
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_2.png)
+3) Choose the type and other parameters of point cloud as a sample in **Point cloud generator**.
+
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/pc.png)
+
+    The point cloud can be displayed in three dimensions, and be saved and loaded as .pcd files.
 
 
-4) The sum, psf and otf can be showed. Note the all of these correspond the generated raw-image stack, so keep the parameters the same before showing the sum (or psf and otf).
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/img_3.png)
+4) Adjust parameters in SIM data generator to simulate a raw image stack.
+
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/raw_stack.png)
+
+    The parameters used in the simulation can be saved with the image stack by clicking **save tif with tags**. Tags (of current or of one stack dragged into napari viewer) can be printed in Python by **print tags**. 
+
+
+5) Three-dimensional point spread function (**PSF**), optical transfer function (**OTF**) and **illumination** patterns applied in the simulation can be showed by buttons. Note the all of these correspond the generated raw-image stack, so keep the parameters the same before showing the **PSF** (or **OTF** and **illumination**).
 
 
 5) The raw image stacks can be then processed by napari-sim-processor (https://www.napari-hub.org/plugins/napari-sim-processor).
+   
+   ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/processor.png)
+
+
 ## Contributing
 
 Contributions are very welcome. Tests can be run with [tox], please ensure
