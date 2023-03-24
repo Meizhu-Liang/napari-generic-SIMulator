@@ -2,7 +2,7 @@ name: napari-generic-SIMulator
 display_name: napari generic SIMulator
 contributions:
   commands:
-    - id: napari-generic-SIMulator.make_simulator_widget
+    - id: napari-generic-SIMulator.make_pointcloud_widget
           python_name: napari_generic_simulator._widget:PointCloud
           title: Point cloud generator
     - id: napari-generic-SIMulator.make_simulator_widget
