@@ -308,11 +308,9 @@ class Base_simulator:
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < 1
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
-            # c = (np.exp(
-            #     1j * (z * self.n * 2 * np.pi / self.det_wavelength *
-            #           np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2) + self.spherical))) * pupil
-            c = (np.exp(1j * (z * self.n * 2 * np.pi / self.det_wavelength * np.sqrt(
-                1 - (self.kr * pupil) ** 2) + self.spherical))) * pupil
+            c = (np.exp(
+                1j * (z * self.n * 2 * np.pi / self.det_wavelength *
+                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2) + self.spherical))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
