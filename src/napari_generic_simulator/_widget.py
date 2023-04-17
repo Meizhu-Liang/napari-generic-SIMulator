@@ -6,8 +6,6 @@ __author__ = "Meizhu Liang @Imperial College London"
 from magicgui import magicgui
 from enum import Enum
 from .baseSIMulator import import_cp, import_torch, torch_GPU
-from .hexSIMulator import HexSim_simulator, RightHexSim_simulator
-from .conSIMulator import ConSim_simulator
 from .Illumination import ConIll, HexIll, RaHexIll
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
@@ -85,6 +83,9 @@ class PointCloud(QWidget):
             y = y1 + (y2 - y1) * l + ay * np.cos(fy * l + py)
             z = z1 + (z2 - z1) * l + az * np.cos(fz * l + pz)
 
+            x = x1 + (x2 - x1) * l
+            y = y1 + (y2 - y1) * l
+            z = z1 + (z2 - z1) * l
             xd = x[1:] - x[:-1]
             yd = y[1:] - y[:-1]
             zd = z[1:] - z[:-1]

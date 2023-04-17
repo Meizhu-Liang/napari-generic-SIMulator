@@ -61,30 +61,27 @@ class Base_simulator:
             self.xp = cp
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
-        self.ph = 4 * np.pi * self.ill_NA / self.ill_wavelength
         self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
-        self.dxn = self.det_wavelength / (2 * 2 * self.det_NA)  # 2 * Nyquist frequency in x and y.
+        self.res = self.det_wavelength / (2 * self.det_NA)
+        self.dxn = self.res / 2  # 2 * Nyquist frequency in x and y.
         self.Nn = int(np.ceil(self.N * self.dx / self.dxn / 2) * 2)  # Number of points at Nyquist sampling, even number
         self.dxn = self.N * self.dx / self.Nn  # correct spacing
-        self.res = self.det_wavelength / (2 * self.det_NA)
         oversampling = self.res / self.dxn  # factor by which pupil plane oversamples the coherent psf data
-        self.dk = oversampling / (self.Nn / 2)  # Pupil plane sampling
-        self.k0 = 2 * np.pi * self.n / self.ill_wavelength
+        self.k0_ill = 2 * np.pi * self.n / self.ill_wavelength
+        self.k0_det = 2 * np.pi * self.n / self.det_wavelength
+        self.krmax = self.det_NA * self.k0_det / self.n
+        self.dk = oversampling / (self.Nn / 2) * self.krmax  # Pupil plane sampling
         self.kx, self.ky = self.xp.meshgrid(
             self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
             self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
-        self.krmax = self.det_NA * self.k0 / self.n
-        self.kr2 = self.kx ** 2 + self.ky ** 2
         self.spherical = self.sph_abb * np.sqrt(5) * (6 * (self.kr ** 4 - self.kr ** 2) + 1)
         self.csum = sum(sum((self.kr < 1)))  # normalise by csum so peak intensity is 1
-
-        self.alpha = np.arcsin(self.det_NA / self.n)
         self.Nz = int(2 * np.ceil(self.zrange / self.dz))
         self.dz = 2 * self.zrange / self.Nz
         # Nyquist sampling in z, reduce by 10 % to account for gaussian light sheet
-        self.dzn = 0.8 * self.det_wavelength / (2 * self.n * (1 - np.cos(self.alpha)))
+        self.dzn = 0.8 * self.det_wavelength / (2 * self.n * (1 - np.cos(np.arcsin(self.det_NA / self.n))))
         self.Nzn = int(2 * np.ceil(self.zrange / self.dzn))
         self.dzn = 2 * self.zrange / self.Nzn
         if self.Nz < self.Nzn:
@@ -183,11 +180,11 @@ class Base_simulator:
 
     def get_vector_psf(self):
         # use krmax to define the pupil function
-        kx = self.krmax * (self.kx + 1e-7)  # need to add small offset to avoid division by zero
-        ky = self.krmax * (self.ky + 1e-7)
-        kr2 = (kx ** 2 + ky ** 2)  # square kr
+        kx = self.kx + 1e-7  # need to add small offset to avoid division by zero
+        ky = self.ky + 1e-7
+        kr2 = kx ** 2 + ky ** 2  # square kr
         e_in = 1.0 * (kr2 < self.krmax ** 2)
-        kz = np.sqrt((self.k0 ** 2 - kr2) + 0j)
+        kz = np.sqrt((self.k0_det ** 2 - kr2) + 0j)
 
         # Calculating psf
         nz = 0
@@ -250,12 +247,12 @@ class Base_simulator:
         s3 = self.xp.array([0, 0, 1])  # z polarised illumination orientation
         excitation3 = (s3 @ p.T) ** 2
 
-        fx1 = self.xp.sqrt(self.k0 / kz) * (self.k0 * ky ** 2 + kx ** 2 * kz) / (self.k0 * kr2) * e_in
-        fy1 = self.xp.sqrt(self.k0 / kz) * kx * ky * (kz - self.k0) / (self.k0 * kr2) * e_in
-        fx2 = self.xp.sqrt(self.k0 / kz) * kx * ky * (kz - self.k0) / (self.k0 * kr2) * e_in
-        fy2 = self.xp.sqrt(self.k0 / kz) * (self.k0 * kx ** 2 + ky ** 2 * kz) / (self.k0 * kr2) * e_in
-        fx3 = self.xp.sqrt(self.k0 / kz) * kx / self.k0 * e_in
-        fy3 = self.xp.sqrt(self.k0 / kz) * ky / self.k0 * e_in
+        fx1 = self.xp.sqrt(self.k0_det / kz) * (self.k0_det * ky ** 2 + kx ** 2 * kz) / (self.k0_det * kr2) * e_in
+        fy1 = self.xp.sqrt(self.k0_det / kz) * kx * ky * (kz - self.k0_det) / (self.k0_det * kr2) * e_in
+        fx2 = self.xp.sqrt(self.k0_det / kz) * kx * ky * (kz - self.k0_det) / (self.k0_det * kr2) * e_in
+        fy2 = self.xp.sqrt(self.k0_det / kz) * (self.k0_det * kx ** 2 + ky ** 2 * kz) / (self.k0_det * kr2) * e_in
+        fx3 = self.xp.sqrt(self.k0_det / kz) * kx / self.k0_det * e_in
+        fy3 = self.xp.sqrt(self.k0_det / kz) * ky / self.k0_det * e_in
 
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
             Exx = self.xp.fft.fftshift(
@@ -299,18 +296,12 @@ class Base_simulator:
 
     def get_scalar_psf(self):
         # use krmax to define the pupil function
-        # kx = self.krmax * self.kx
-        # ky = self.krmax * self.ky
-        # kr2 = (kx ** 2 + ky ** 2)  # square kr
-        # # 2 * np.pi * self.n / self.wavelength
-        # kz = self.xp.sqrt((self.k0 ** 2 - kr2) + 0j)
         nz = 0
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
-        pupil = self.kr < 1
+        pupil = self.kr < (self.krmax)
+        kz = np.sqrt(self.k0_det ** 2 - (self.kr * pupil) ** 2)
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
-            c = (np.exp(
-                1j * (z * self.n * 2 * np.pi / self.det_wavelength *
-                      np.sqrt(1 - (self.kr * pupil) ** 2 * self.det_NA ** 2 / self.n ** 2) + self.spherical))) * pupil
+            c = (np.exp(1j * (z * kz + self.spherical))) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
@@ -397,7 +388,7 @@ class Base_simulator:
         # Abs is required as the result will be complex as the fourier plane cannot be shifted back to zero when oversampling.
         # But should reduction in sampling be allowed here(Nz < Nzn)?
 
-        stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
+        # stackfilename = f"Raw_img_stack_{self.N}_{self.pol}.tif"
         if self.acc == 0:
             # raw image stack
             # raw image sum along z axis
@@ -418,8 +409,8 @@ class Base_simulator:
             self.img_sum_x = cp.asnumpy(cp.sum(img, axis=1))
             self.img = cp.asnumpy(img)
 
-        # Save generated images
-        tifffile.imwrite(stackfilename, self.img)
+        # # Save generated images
+        # tifffile.imwrite(stackfilename, self.img)
         elapsed_Brownian = time.time() - start_Brownian
         yield f'Finished, Phase tilts calculation time:  {elapsed_Brownian:3f}s'
 
