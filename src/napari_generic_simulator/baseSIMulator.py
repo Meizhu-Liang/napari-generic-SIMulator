@@ -310,7 +310,6 @@ class Base_simulator:
     def raw_image_stack_brownian(self):
         # Calculates 3d psf and otf before the image stack
         self.initialise()
-
         # Calculating psf
         if self.psf_calc == 'vector_rigid':
             psf_x, psf_y, psf_z = self.get_vector_psf()
@@ -320,9 +319,9 @@ class Base_simulator:
             psf = psf_x + psf_y + psf_z
         else:
             psf = self.get_scalar_psf()
+
         yield "psf calculated"
         self.psffile = np.sum(psf, axis=(1, 2))
-
         # Calculating 3d otf
         self.psf = psf  # 3d psf for display
         if self.acc == 3:
@@ -338,11 +337,9 @@ class Base_simulator:
         if self.acc == 3:
             aotf = cp.asnumpy(aotf)
         m = max(aotf.flatten())
-
         self.aotf = np.log(aotf + aotf.max() / 1000)  # 3d aotf with log
         if self.acc == 3:
             self.aotf = cp.asnumpy(self.aotf)
-
         yield "3d otf calculated"
 
         self.points[:, 0] -= self.xdrift * self.tpoints / 2000
