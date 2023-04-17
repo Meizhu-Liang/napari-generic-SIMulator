@@ -111,7 +111,6 @@ class Base_simulator:
 
     def phase_tilts(self):
         """Generates phase tilts in frequency space"""
-
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
         dkz = np.pi / self.zrange
