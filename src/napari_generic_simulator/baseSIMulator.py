@@ -75,9 +75,8 @@ class Base_simulator:
         self.kx, self.ky = self.xp.meshgrid(
             self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn),
             self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
-        self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius 1.
-        self.spherical = self.sph_abb * np.sqrt(5) * (6 * (self.kr ** 4 - self.kr ** 2) + 1)
-        self.csum = sum(sum((self.kr < 1)))  # normalise by csum so peak intensity is 1
+        self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius self.krmax.
+        self.spherical = self.sph_abb * np.sqrt(5) * (6 * ((self.kr / self.krmax) ** 4 - (self.kr / self.krmax) ** 2) + 1)
         self.Nz = int(2 * np.ceil(self.zrange / self.dz))
         self.dz = 2 * self.zrange / self.Nz
         # Nyquist sampling in z, reduce by 10 % to account for gaussian light sheet
@@ -182,7 +181,7 @@ class Base_simulator:
         kx = self.kx + 1e-7  # need to add small offset to avoid division by zero
         ky = self.ky + 1e-7
         kr2 = kx ** 2 + ky ** 2  # square kr
-        e_in = 1.0 * (kr2 < self.krmax ** 2)
+        pupil = 1.0 * (kr2 < self.krmax ** 2)
         kz = np.sqrt((self.k0_det ** 2 - kr2) + 0j)
 
         # Calculating psf
@@ -238,7 +237,9 @@ class Base_simulator:
         # got the flattened array and calculate the square root of the sum of squares
         p2 = p2 / self.xp.linalg.norm(p2[0, :])
 
-        p = p2
+        p = p2[p2[:, 2] > 0]  # just select one half of the orientations as their emission is symmetric
+        plen = p.shape[0]
+
         s1 = self.xp.array([1, 0, 0])  # x polarised illumination orientation
         excitation1 = (s1 @ p.T) ** 2
         s2 = self.xp.array([0, 1, 0])  # y polarised illumination orientation
@@ -246,12 +247,12 @@ class Base_simulator:
         s3 = self.xp.array([0, 0, 1])  # z polarised illumination orientation
         excitation3 = (s3 @ p.T) ** 2
 
-        fx1 = self.xp.sqrt(self.k0_det / kz) * (self.k0_det * ky ** 2 + kx ** 2 * kz) / (self.k0_det * kr2) * e_in
-        fy1 = self.xp.sqrt(self.k0_det / kz) * kx * ky * (kz - self.k0_det) / (self.k0_det * kr2) * e_in
-        fx2 = self.xp.sqrt(self.k0_det / kz) * kx * ky * (kz - self.k0_det) / (self.k0_det * kr2) * e_in
-        fy2 = self.xp.sqrt(self.k0_det / kz) * (self.k0_det * kx ** 2 + ky ** 2 * kz) / (self.k0_det * kr2) * e_in
-        fx3 = self.xp.sqrt(self.k0_det / kz) * kx / self.k0_det * e_in
-        fy3 = self.xp.sqrt(self.k0_det / kz) * ky / self.k0_det * e_in
+        fx1 = self.xp.sqrt(self.k0_det / kz) * (self.k0_det * ky ** 2 + kx ** 2 * kz) / (self.k0_det * kr2) * pupil
+        fy1 = self.xp.sqrt(self.k0_det / kz) * kx * ky * (kz - self.k0_det) / (self.k0_det * kr2) * pupil
+        fx2 = self.xp.sqrt(self.k0_det / kz) * kx * ky * (kz - self.k0_det) / (self.k0_det * kr2) * pupil
+        fy2 = self.xp.sqrt(self.k0_det / kz) * (self.k0_det * kx ** 2 + ky ** 2 * kz) / (self.k0_det * kr2) * pupil
+        fx3 = self.xp.sqrt(self.k0_det / kz) * kx / self.k0_det * pupil
+        fy3 = self.xp.sqrt(self.k0_det / kz) * ky / self.k0_det * pupil
 
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
             Exx = self.xp.fft.fftshift(
@@ -276,21 +277,15 @@ class Base_simulator:
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
                 intensityz = intensityz + excitation3[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
-            # if self.pol == 'r':
-            #     intensity = intensityz  # for axially polarised illumination
-            # elif self.pol == 'c':
-            # dipoles that re-orient between excitation and emmission and maybe for circular polarised illumination
-            # intensity = (intensityx + intensityy + intensityz) / 3
-            # else:
-            #     intensity = intensityx + intensityy  # for in plane illumination
+
             psf_x[nz, :, :] = intensityx * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             psf_y[nz, :, :] = intensityy * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
             psf_z[nz, :, :] = intensityz * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
 
             nz = nz + 1
-        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
-        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
-        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
+        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
+        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
+        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
         return psf_x, psf_y, psf_z
 
     def get_scalar_psf(self):
@@ -313,10 +308,19 @@ class Base_simulator:
         # Calculating psf
         if self.psf_calc == 'vector_rigid':
             psf_x, psf_y, psf_z = self.get_vector_psf()
-            psf = psf_z  # worst case axial illumination
+            norm_val = np.sum(psf_x, axis=(1, 2)).max()
+            psf_x /= norm_val
+            psf_y /= norm_val
+            psf_z /= norm_val
+            psf = psf_z
+            self.psf_x = psf_x
+            self.psf_y = psf_y
+            self.psf_z = psf_z
         elif self.psf_calc == 'vector_flexible':
             psf_x, psf_y, psf_z = self.get_vector_psf()
             psf = psf_x + psf_y + psf_z
+            norm_val = np.sum(psf, axis=(1, 2)).max()
+            psf /= norm_val
         else:
             psf = self.get_scalar_psf()
 

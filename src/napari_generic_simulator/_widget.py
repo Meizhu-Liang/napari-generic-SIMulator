@@ -14,6 +14,7 @@ from napari.layers import Layer
 import tifffile
 import numpy as np
 import open3d as o3d
+import matplotlib.pyplot as plt
 
 
 class Samples(Enum):
@@ -452,7 +453,8 @@ class SIMulator(QWidget):
                         self.messageBox.value = 'Parameters changed! Calculate the raw-image stack first!'
                     else:
                         try:
-                            self._viewer.add_image(self.sim.psf,
+                            if self.Psf.value == Psf_calc.VEC_RIGID:
+                                self._viewer.add_image(self.sim.psf,
                                                    scale=(self.sim.dzn,
                                                           self.sim.dxn,
                                                           self.sim.dxn),
@@ -461,6 +463,26 @@ class SIMulator(QWidget):
                                                        -self.sim.dxn * self.sim.Nn / 2,
                                                        -self.sim.dxn * self.sim.Nn / 2),
                                                    name='3d-PSF')
+                                plt.figure()
+                                plt.plot(np.sum(self.sim.psf_x, axis=(1, 2)))
+                                plt.plot(np.sum(self.sim.psf_y, axis=(1, 2)))
+                                plt.plot(np.sum(self.sim.psf_z, axis=(1, 2)))
+                                plt.title(f'max(x) = {np.sum(self.sim.psf_x, axis=(1, 2)).max():.4f}, max(z) = {np.sum(self.sim.psf_z, axis=(1, 2)).max():.4f}')
+                                plt.show()
+                            else:
+                                self._viewer.add_image(self.sim.psf,
+                                                       scale=(self.sim.dzn,
+                                                              self.sim.dxn,
+                                                              self.sim.dxn),
+                                                       translate=(
+                                                           -self.sim.dzn * self.sim.Nzn / 2,
+                                                           -self.sim.dxn * self.sim.Nn / 2,
+                                                           -self.sim.dxn * self.sim.Nn / 2),
+                                                       name='3d-PSF')
+                                plt.figure()
+                                plt.plot(np.sum(self.sim.psf, axis=(1, 2)))
+                                plt.title(f'max = {np.sum(self.sim.psf, axis=(1, 2)).max():.4f}')
+                                plt.show()
                         except Exception as e:
                             print(e)
 
