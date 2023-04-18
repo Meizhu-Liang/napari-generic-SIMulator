@@ -243,7 +243,9 @@ class Base_simulator:
         # got the flattened array and calculate the square root of the sum of squares
         p2 = p2 / self.xp.linalg.norm(p2[0, :])
 
-        p = p2
+        p = p2[p2[:,2]>0]  # just select one half of the orientations as their emission is symmetric
+        plen = p.shape[0]
+
         s1 = self.xp.array([1, 0, 0])  # x polarised illumination orientation
         excitation1 = (s1 @ p.T) ** 2
         s2 = self.xp.array([0, 1, 0])  # y polarised illumination orientation
@@ -293,9 +295,9 @@ class Base_simulator:
             psf_z[nz, :, :] = intensityz * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
 
             nz = nz + 1
-        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
-        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
-        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(e_in) * self.Nz / self.Nzn
+        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(self.xp.abs(e_in) ** 2) * self.Nz / self.Nzn / plen
+        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(self.xp.abs(e_in) ** 2) * self.Nz / self.Nzn / plen
+        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(self.xp.abs(e_in) ** 2) * self.Nz / self.Nzn / plen
         return psf_x, psf_y, psf_z
 
     def get_scalar_psf(self):

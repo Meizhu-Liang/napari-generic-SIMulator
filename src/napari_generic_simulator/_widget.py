@@ -16,6 +16,7 @@ from napari.layers import Layer
 import tifffile
 import numpy as np
 import open3d as o3d
+import matplotlib.pyplot as plt
 
 
 class Samples(Enum):
@@ -460,6 +461,10 @@ class SIMulator(QWidget):
                                                        -self.sim.dxn * self.sim.Nn / 2,
                                                        -self.sim.dxn * self.sim.Nn / 2),
                                                    name='3d-PSF')
+                            plt.figure()
+                            plt.plot(np.sum(self.sim.psf, axis=(1, 2)))
+                            plt.title(f'max = {np.sum(self.sim.psf, axis=(1, 2)).max()}')
+                            plt.show()
                         except Exception as e:
                             print(e)
 
