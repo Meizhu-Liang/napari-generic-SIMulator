@@ -237,7 +237,7 @@ class SIMulator(QWidget):
         self.Polarisation = ComboBox(value=Pol.radial, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
         self.Psf = ComboBox(value=Psf_calc.SCALAR, label='Psf calculation', choices=Psf_calc)
-        self.N = SpinBox(value=128, name='spin', label='N pixel')
+        self.N = SpinBox(value=128, name='spin', label='N pixel', max=1100)
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='magnification')
         self.ill_NA = FloatSpinBox(value=1, name='spin', label='NA  illumination', min=0.0, step=0.1)
@@ -246,7 +246,7 @@ class SIMulator(QWidget):
         self.ill_wavelength = SpinBox(value=540, label='λ  illumination(nm)', step=50)
         self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=50)
 
-        self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0)
+        self.zrange = FloatSpinBox(value=3.5, name='spin', label='z range(μm)', min=0.0, max=10000)
         self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
         self.xdrift = FloatSpinBox(value=0.0, name='spin', label='xdrift(nm)', min=0.0, max=1000.0, step=5)
         self.zdrift = FloatSpinBox(value=50.0, name='spin', label='zdrift(nm)', min=0.0, max=1000.0, step=5)
@@ -313,7 +313,8 @@ class SIMulator(QWidget):
         self.sim.points = self.points
         self.sim.npoints = self.npoints
 
-        self.sim.N = self.N.value
+        self.sim.N = (self.N.value // 2) * 2
+        self.N.value = self.sim.N
         self.sim.pixel_size = self.pixel_size.value
         self.sim.magnification = self.magnification.value
         self.sim.ill_NA = self.ill_NA.value
