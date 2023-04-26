@@ -79,8 +79,8 @@ class Base_simulator:
         self.spherical = self.sph_abb * np.sqrt(5) * (6 * ((self.kr / self.krmax) ** 4 - (self.kr / self.krmax) ** 2) + 1)
         self.Nz = int(2 * np.ceil(self.zrange / self.dz))
         self.dz = 2 * self.zrange / self.Nz
-        # Nyquist sampling in z, reduce by 10 % to account for gaussian light sheet
-        self.dzn = 0.8 * self.det_wavelength / (2 * self.n * (1 - np.cos(np.arcsin(self.det_NA / self.n))))
+        # Nyquist sampling in z
+        self.dzn = self.det_wavelength / (2 * self.n * (1 - np.cos(np.arcsin(self.det_NA / self.n))))
         self.Nzn = int(2 * np.ceil(self.zrange / self.dzn))
         self.dzn = 2 * self.zrange / self.Nzn
         if self.Nz < self.Nzn:
@@ -213,7 +213,8 @@ class Base_simulator:
                                             -0.333332, 0.577349, -0.745355,
                                             0.127322, -0.93417, -0.333332,
                                             0.127322, 0.93417, -0.333332]), (20, 3))
-        # p2 are the vertices of the same icosahedron in a different orientation
+        # p2 are the vertices of the same dodecahedron in a different orientation
+        # ?
         p2 = self.xp.reshape(self.xp.array([-1.37638, 0., 0.262866,
                                             1.37638, 0., -0.262866,
                                             -0.425325, -1.30902, 0.262866,
@@ -278,10 +279,9 @@ class Base_simulator:
                 intensityz = intensityz + excitation3[i] * (abs(p[i, 0] * Exx + p[i, 1] * Eyx + p[i, 2] * Ezx) ** 2 +
                                                             abs(p[i, 0] * Exy + p[i, 1] * Eyy + p[i, 2] * Ezy) ** 2)
 
-            psf_x[nz, :, :] = intensityx * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
-            psf_y[nz, :, :] = intensityy * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
-            psf_z[nz, :, :] = intensityz * self.xp.exp(-z ** 2 / 2 / self.sigmaz ** 2)
-
+            psf_x[nz, :, :] = intensityx
+            psf_y[nz, :, :] = intensityy
+            psf_z[nz, :, :] = intensityz
             nz = nz + 1
         psf_x = psf_x * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
         psf_y = psf_y * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
@@ -296,7 +296,7 @@ class Base_simulator:
         kz = np.sqrt(self.k0_det ** 2 - (self.kr * pupil) ** 2)
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
             c = (np.exp(1j * (z * kz + self.spherical))) * pupil
-            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2 * np.exp(-z ** 2 / 2 / self.sigmaz ** 2)
+            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
         psf = psf * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn
