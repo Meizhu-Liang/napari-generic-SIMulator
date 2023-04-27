@@ -181,7 +181,7 @@ class Base_simulator:
         kx = self.kx + 1e-7  # need to add small offset to avoid division by zero
         ky = self.ky + 1e-7
         kr2 = kx ** 2 + ky ** 2  # square kr
-        pupil = 1.0 * (kr2 < self.krmax ** 2)
+        pupil = 1.0 * (kr2 < self.krmax ** 2)  # change of the pupil in the amplitude
         kz = np.sqrt((self.k0_det ** 2 - kr2) + 0j)
 
         # Calculating psf
@@ -213,8 +213,8 @@ class Base_simulator:
                                             -0.333332, 0.577349, -0.745355,
                                             0.127322, -0.93417, -0.333332,
                                             0.127322, 0.93417, -0.333332]), (20, 3))
+
         # p2 are the vertices of the same dodecahedron in a different orientation
-        # ?
         p2 = self.xp.reshape(self.xp.array([-1.37638, 0., 0.262866,
                                             1.37638, 0., -0.262866,
                                             -0.425325, -1.30902, 0.262866,
@@ -256,18 +256,19 @@ class Base_simulator:
         fy3 = self.xp.sqrt(self.k0_det / kz) * ky / self.k0_det * pupil
 
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
+            pupil_phase = np.exp(1j * (z * kz + self.spherical))  # change of the pupil in the phase
             Exx = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fx1 * np.exp(1j * z * kz)))  # x-polarised field at camera for x-oriented dipole
+                self.xp.fft.ifft2(fx1 * pupil_phase))  # x-polarised field at camera for x-oriented dipole
             Exy = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fy1 * np.exp(1j * z * kz)))  # y-polarised field at camera for x-oriented dipole
+                self.xp.fft.ifft2(fy1 * pupil_phase))  # y-polarised field at camera for x-oriented dipole
             Eyx = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fx2 * np.exp(1j * z * kz)))  # x-polarised field at camera for y-oriented dipole
+                self.xp.fft.ifft2(fx2 * pupil_phase))  # x-polarised field at camera for y-oriented dipole
             Eyy = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fy2 * np.exp(1j * z * kz)))  # y-polarised field at camera for y-oriented dipole
+                self.xp.fft.ifft2(fy2 * pupil_phase))  # y-polarised field at camera for y-oriented dipole
             Ezx = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fx3 * np.exp(1j * z * kz)))  # x-polarised field at camera for z-oriented dipole
+                self.xp.fft.ifft2(fx3 * pupil_phase))  # x-polarised field at camera for z-oriented dipole
             Ezy = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fy3 * np.exp(1j * z * kz)))  # y-polarised field at camera for z-oriented dipole
+                self.xp.fft.ifft2(fy3 * pupil_phase))  # y-polarised field at camera for z-oriented dipole
             intensityx = self.xp.zeros((self.Nn, self.Nn))
             intensityy = self.xp.zeros((self.Nn, self.Nn))
             intensityz = self.xp.zeros((self.Nn, self.Nn))
@@ -295,12 +296,12 @@ class Base_simulator:
         pupil = self.kr < (self.krmax)
         kz = np.sqrt(self.k0_det ** 2 - (self.kr * pupil) ** 2)
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
-            c = (np.exp(1j * (z * kz + self.spherical))) * pupil
+            c = np.exp(1j * (z * kz + self.spherical)) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c, norm='ortho'))) ** 2
             # default 'backwards' normalisation: psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
-        psf = psf * (1 / self.xp.sum(pupil ** 2)) * (self.Nz / self.Nzn)
+        psf = psf / self.xp.sum(pupil ** 2) * (self.Nz / self.Nzn)
         # normalisation factor: Nn ** 2, for use with norm='backwards' ifft:
         # psf = psf * (self.Nn **2 / self.xp.sum(pupil ** 2)) * (self.Nz / self.Nzn)
         return psf
