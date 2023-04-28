@@ -539,6 +539,7 @@ class SIMulator(QWidget):
                                                           -self.pixel_size.value / self.magnification.value * self.N.value / 2),
                                                interpolation2d='spline36',
                                                name='illumination')
+                        self._viewer.dims.current_step = (0,self.sim.illumination_stack().shape[1],self.sim.illumination_stack().shape[2])
                     except Exception as e:
                         print(str(e))
 
