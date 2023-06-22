@@ -297,8 +297,8 @@ class Base_simulator:
         kz = np.sqrt(self.k0_det ** 2 - (self.kr * pupil) ** 2)
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
             c = np.exp(1j * (z * kz + self.spherical)) * pupil
-            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c, norm='ortho'))) ** 2
-            # default 'backwards' normalisation: psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2
+            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.fft2(c, norm='ortho'))) ** 2
+            # default 'backwards' normalisation: psf[nz, :, :] = abs(np.fft.fftshift(np.fft.fft2(c))) ** 2
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
         psf = psf / self.xp.sum(pupil ** 2) * (self.Nz / self.Nzn)
