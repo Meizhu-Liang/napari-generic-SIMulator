@@ -258,17 +258,17 @@ class Base_simulator:
         for z in np.arange(-self.zrange, self.zrange, self.dzn):
             pupil_phase = np.exp(1j * (z * kz + self.spherical))  # change of the pupil in the phase
             Exx = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fx1 * pupil_phase))  # x-polarised field at camera for x-oriented dipole
+                self.xp.fft.fft2(fx1 * pupil_phase))  # x-polarised field at camera for x-oriented dipole
             Exy = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fy1 * pupil_phase))  # y-polarised field at camera for x-oriented dipole
+                self.xp.fft.fft2(fy1 * pupil_phase))  # y-polarised field at camera for x-oriented dipole
             Eyx = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fx2 * pupil_phase))  # x-polarised field at camera for y-oriented dipole
+                self.xp.fft.fft2(fx2 * pupil_phase))  # x-polarised field at camera for y-oriented dipole
             Eyy = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fy2 * pupil_phase))  # y-polarised field at camera for y-oriented dipole
+                self.xp.fft.fft2(fy2 * pupil_phase))  # y-polarised field at camera for y-oriented dipole
             Ezx = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fx3 * pupil_phase))  # x-polarised field at camera for z-oriented dipole
+                self.xp.fft.fft2(fx3 * pupil_phase))  # x-polarised field at camera for z-oriented dipole
             Ezy = self.xp.fft.fftshift(
-                self.xp.fft.ifft2(fy3 * pupil_phase))  # y-polarised field at camera for z-oriented dipole
+                self.xp.fft.fft2(fy3 * pupil_phase))  # y-polarised field at camera for z-oriented dipole
             intensityx = self.xp.zeros((self.Nn, self.Nn))
             intensityy = self.xp.zeros((self.Nn, self.Nn))
             intensityz = self.xp.zeros((self.Nn, self.Nn))
