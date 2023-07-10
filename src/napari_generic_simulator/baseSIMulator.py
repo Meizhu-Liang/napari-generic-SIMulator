@@ -35,8 +35,8 @@ class Base_simulator:
     points = None
     npoints = 0
     xp = np
-    pol = None  # polarisation
     acc = None  # acceleration
+    pol = None  # polarisation
     psf_calc = None
     _tdev = None
     N = 512  # points to use in FFT
