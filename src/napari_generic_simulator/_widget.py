@@ -6,7 +6,7 @@ __author__ = "Meizhu Liang @Imperial College London"
 from magicgui import magicgui
 from enum import Enum
 from .baseSIMulator import import_cp, import_torch, torch_GPU
-from .Illumination import ConIll, HexIll, RaHexIll
+from .Illumination import ConIll, HexIll, RaHexIll, ConIll3D
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
 from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons, PushButton
@@ -176,6 +176,7 @@ class Sim_mode(Enum):
     HEXSIM = 0
     HEXSIM_RA = 1
     SIM_CONV = 2  # Conventional 2-beam SIM
+    SIM_CONV_3D = 3
 
 
 class Pol(Enum):
@@ -276,6 +277,9 @@ class SIMulator(QWidget):
         elif self.SIM_mode.value == Sim_mode.SIM_CONV:
             # self.sim = ConSim_simulator()
             self.sim = ConIll()
+            nsteps = self.sim._phaseStep * self.sim._angleStep
+        elif self.SIM_mode.value == Sim_mode.SIM_CONV_3D:
+            self.sim = ConIll3D()
             nsteps = self.sim._phaseStep * self.sim._angleStep
 
         if self.Polarisation.value == Pol.azimuthal:
