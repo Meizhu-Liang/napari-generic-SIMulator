@@ -47,7 +47,7 @@ class Base_simulator:
     n = 1.33  # refractive index at sample
     ill_wavelength = 520e-3  # illumination wavelength in um
     det_wavelength = 570e-3  # detection wavelength in um
-    zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
+    zrangeN = 2.5  # Nyquist distance either side of focus to calculate in microns (depth of the sample)
     dz = 0.4  # step size in axial direction of PSF in um
     fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
@@ -77,12 +77,12 @@ class Base_simulator:
             self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius self.krmax.
         self.spherical = self.sph_abb * np.sqrt(5) * (6 * ((self.kr / self.krmax) ** 4 - (self.kr / self.krmax) ** 2) + 1)
-        self.Nz = int(2 * np.ceil(self.zrange / self.dz))
-        self.dz = 2 * self.zrange / self.Nz
+        self.Nz = int(2 * np.ceil(self.zrangeN / self.dz))
+        self.dz = 2 * self.zrangeN / self.Nz
         # Nyquist sampling in z
         self.dzn = self.det_wavelength / (2 * self.n * (1 - np.cos(np.arcsin(self.det_NA / self.n))))
-        self.Nzn = int(2 * np.ceil(self.zrange / self.dzn))
-        self.dzn = 2 * self.zrange / self.Nzn
+        self.Nzn = int(2 * np.ceil(self.zrangeN / self.dzn))
+        self.dzn = 2 * self.zrangeN / self.Nzn
         if self.Nz < self.Nzn:
             self.Nz = self.Nzn
             self.dz = self.dzn
@@ -112,7 +112,7 @@ class Base_simulator:
         """Generates phase tilts in frequency space"""
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
-        dkz = np.pi / self.zrange
+        dkz = np.pi / self.zrangeN
         if (self.acc == 0) or (self.acc == 3):
             kxy = self.xp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=self.xp.single)
             kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
@@ -255,7 +255,7 @@ class Base_simulator:
         fx3 = self.xp.sqrt(self.k0_det / kz) * kx / self.k0_det * pupil
         fy3 = self.xp.sqrt(self.k0_det / kz) * ky / self.k0_det * pupil
 
-        for z in np.arange(-self.zrange, self.zrange, self.dzn):
+        for z in np.arange(-self.zrangeN, self.zrangeN, self.dzn):
             pupil_phase = np.exp(1j * (z * kz + self.spherical))  # change of the pupil in the phase
             Exx = self.xp.fft.fftshift(
                 self.xp.fft.ifft2(fx1 * pupil_phase))  # x-polarised field at camera for x-oriented dipole
@@ -295,7 +295,7 @@ class Base_simulator:
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < (self.krmax)
         kz = np.sqrt(self.k0_det ** 2 - (self.kr * pupil) ** 2)
-        for z in np.arange(-self.zrange, self.zrange, self.dzn):
+        for z in np.arange(-self.zrangeN, self.zrangeN, self.dzn):
             c = np.exp(1j * (z * kz + self.spherical)) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c, norm='ortho'))) ** 2
             # default 'backwards' normalisation: psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2
