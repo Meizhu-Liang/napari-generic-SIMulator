@@ -13,7 +13,8 @@ from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, 
 from napari.layers import Layer
 import tifffile
 import numpy as np
-import open3d as o3d
+# import open3d as o3d
+from pypcd_imp import pypcd
 import matplotlib.pyplot as plt
 
 
@@ -127,21 +128,29 @@ class PointCloud(QWidget):
     def save_pc(self):
         if hasattr(self._viewer.layers.selection.active, 'data'):
             try:
-                options = QFileDialog.Options()
-                filename = QFileDialog.getSaveFileName(self, 'Save a file', options=options, filter='Files (*.pcd)')
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(-self._viewer.layers.selection.active.data[:, ::-1])
-                o3d.io.write_point_cloud(filename[0], pcd)
+                # options = QFileDialog.Options()
+                # filename = QFileDialog.getSaveFileName(self, 'Save a file', options=options, filter='Files (*.pcd)')
+                # pcd = o3d.geometry.PointCloud()
+                # pcd.points = o3d.utility.Vector3dVector(-self._viewer.layers.selection.active.data[:, ::-1])
+                # o3d.io.write_point_cloud(filename[0], pcd)
+                filename, _ = QFileDialog.getSaveFileName(self, 'Save a file', filter='Files (*.pcd)')
+                print(filename)
+                pc = pypcd.make_xyz_point_cloud(-self._viewer.layers.selection.active.data[:, ::-1])
+                pypcd.save_point_cloud(pc, filename)
                 print('Point cloud saved')
             except Exception as e:
                 print(e)
 
     def load_pc(self):
         try:
-            options = QFileDialog.Options()
-            filename = QFileDialog.getOpenFileName(self, 'Pick a file', options=options, filter='Files (*.pcd)')
-            pcd = o3d.io.read_point_cloud(filename[0])
-            out_arr = np.asarray(pcd.points)
+            # options = QFileDialog.Options()
+            filename, _ = QFileDialog.getOpenFileName(self, 'Pick a file', filter='Files (*.pcd)')
+            # pcd = o3d.io.read_point_cloud(filename[0])
+            # out_arr = np.asarray(pcd.points)
+            # self._viewer.add_points(out_arr, size=0.1, name=filename[0])
+            pc = pypcd.point_cloud_from_path(filename)
+            out_arr = np.asarray(pc.pc_data)
+            print(out_arr.shape, out_arr.dtype, out_arr)
             self._viewer.add_points(out_arr, size=0.1, name=filename[0])
         except Exception as e:
             print(e)

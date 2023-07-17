@@ -22,7 +22,7 @@ try:
 
     print('torch imported')
     import_torch = True
-    if torch.has_cuda:
+    if torch.has_cuda:  # or torch.has_mps:
         torch_GPU = True
     else:
         torch_GPU = False
@@ -89,8 +89,13 @@ class Base_simulator:
         else:
             self.Nzn = self.Nz
             self.dzn = self.dz
-        if (self.acc == 1) | (self.acc == 2):
-            self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
+        if (self.acc == 1):
+            self._tdev = torch.device('cpu')
+        elif (self.acc == 2):
+            if torch.has_mps:
+                self._tdev = torch.device('mps')
+            elif torch.has_cuda:
+                self._tdev = torch.device('cuda')
 
         # pre allocate phasetilts arrays
         if (self.acc == 0) or (self.acc == 3):
@@ -150,11 +155,11 @@ class Base_simulator:
                     py = self.xp.exp(1j * kxy[self.xp.newaxis, :] * y[:, self.xp.newaxis])
                     pz = self.xp.exp(1j * kz[self.xp.newaxis, :] * z[:, self.xp.newaxis])
                     if self.psf_calc == 'vector_rigid':
-                        ill = self.xp.array(self._ill_obj_vec(x, y, pstep, astep),
+                        ill = self.xp.array(self._ill_obj_vec(x, y, z, pstep, astep),
                                             dtype=self.xp.single)
                         oe.contract('im,il,ik,ij->mjkl', ill, px, py, pz, out=self.phasetilts[istep])
                     else:
-                        ill = self.xp.array(self._ill_obj(x, y, pstep, astep),
+                        ill = self.xp.array(self._ill_obj(x, y, z, pstep, astep),
                                             dtype=self.xp.single)
                         oe.contract('i,il,ik,ij->jkl', ill, px, py, pz, out=self.phasetilts[istep])
                 else:
@@ -166,11 +171,11 @@ class Base_simulator:
                     py = torch.exp(1j * kxy[None, :] * y[:, None])
                     pz = torch.exp(1j * kz[None, :] * z[:, None])
                     if self.psf_calc == 'vector_rigid':
-                        ill = torch.tensor(self._ill_obj_vec(self.points[:, 0], self.points[:, 1], pstep, astep),
+                        ill = torch.tensor(self._ill_obj_vec(self.points[:, 0], self.points[:, 1], self.points[:, 2], pstep, astep),
                                            dtype=torch.float32, device=self._tdev)
                         oe.contract('im,il,ik,ij->mjkl', ill, px, py, pz, out=self.phasetilts[istep])
                     else:
-                        ill = torch.tensor(self._ill_obj(self.points[:, 0], self.points[:, 1], pstep, astep),
+                        ill = torch.tensor(self._ill_obj(self.points[:, 0], self.points[:, 1], self.points[:, 2], pstep, astep),
                                            dtype=torch.float32, device=self._tdev)
                         oe.contract('i,il,ik,ij->jkl', ill, px, py, pz, out=self.phasetilts[istep])
         self.elapsed_time = time.time() - start_time
@@ -426,6 +431,7 @@ class Base_simulator:
         xyvals = (self.xp.arange(self.N) - self.N / 2) * self.dx
         xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
         xarr_l, yarr_l = self.xp.array(xarr).flatten(), self.xp.array(yarr).flatten()
+        zarr_l = self.xp.zeros_like(xarr_l)
         self.npoints = xarr_l.shape[0]
 
         start_time = time.time()
@@ -434,7 +440,7 @@ class Base_simulator:
             self.jones_vectors(astep)
             for pstep in range(self._phaseStep):
                 itcount += 1
-                ill_1d = self._ill_obj(xarr_l, yarr_l, pstep, astep)
+                ill_1d = self._ill_obj(xarr_l, yarr_l, zarr_l, pstep, astep)
                 illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
 
         for i in range(1, int(self.tpoints) // self._nsteps):
