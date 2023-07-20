@@ -123,7 +123,8 @@ class Base_simulator:
             for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
                 self.points[:, 0] += self.xdrift / 1000
-                self.points[:, 2] += self.zdrift / 1000
+                if self.zdrift:
+                    self.points[:, 2] += self.zdrift / 1000
                 istep = pstep + self._phaseStep * astep  # index of the steps
                 prog = (100 * itcount) // total_its
                 if prog > lastProg + 9:
@@ -342,7 +343,10 @@ class Base_simulator:
         yield "3d otf calculated"
 
         self.points[:, 0] -= self.xdrift * self.tpoints / 2000
-        self.points[:, 2] -= self.zdrift * self.tpoints / 2000
+        if self.zdrift:
+            self.points[:, 2] -= self.zdrift * self.tpoints / 2000
+        else:
+            self.points[:, 2] -= self.zstep * (self.tpoints / self._nsteps) / 2000
         if (self.acc == 0) | (self.acc == 3):
             img = self.xp.zeros((int(self.tpoints), self.N, self.N), dtype=np.single)
         else:
@@ -351,11 +355,12 @@ class Base_simulator:
         start_Brownian = time.time()
         tplane = 0
         yield "Starting stack"
-        # self.points[:, 2] -= self.zdrift * (self.tpoints / self._nsteps) / 2000
+
         for t in np.arange(0, self.tpoints, self._nsteps):
             for msg in self.phase_tilts():
                 yield f'planes at time point = {t} of {self.tpoints}, {msg}'
-            # self.points[:, 2] += self.zdrift / 1000
+            if self.zstep:
+                self.points[:, 2] += self.zstep / 1000
             for i in range(self._nsteps):
                 if (self.acc == 0) | (self.acc == 3):
                     if self.psf_calc == 'vector_rigid':
