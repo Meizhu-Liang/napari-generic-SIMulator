@@ -326,7 +326,6 @@ class SIMulator(QWidget):
         self.sim.zrangeN = self.zrange * 2
         self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
         self.tpoints.value = self.sim.tpoints
-        self.sim.dz = (self.sim.zrangeN + 2 * self.sim.det_wavelength / self.sim.det_NA ** 2) * nsteps / self.sim.tpoints
         self.sim.xdrift = self.xdrift.value
         self.sim.zdrift = self.zdrift.value
         self.sim.fwhmz = self.fwhmz.value
@@ -411,10 +410,9 @@ class SIMulator(QWidget):
         w_parameters = Container(
             widgets=[
                 Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
-                                   self.pixel_size, self.ill_NA, self.det_NA, self.n,
-                                   self.ill_wavelength, self.det_wavelength]),
-                Container(widgets=[self.magnification, self.tpoints, self.xdrift,
-                                   self.zdrift, self.fwhmz, self.drift, self.sph_abb])],
+                                   self.pixel_size, self.ill_NA, self.det_NA, self.n]),
+                Container(widgets=[self.ill_wavelength, self.det_wavelength, self.magnification, self.tpoints,
+                                   self.xdrift, self.zdrift, self.fwhmz, self.drift, self.sph_abb, ])],
             layout='horizontal')
 
         # 'save and print' widgets

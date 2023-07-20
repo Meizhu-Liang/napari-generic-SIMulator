@@ -47,8 +47,7 @@ class Base_simulator:
     n = 1.33  # refractive index at sample
     ill_wavelength = 520e-3  # illumination wavelength in um
     det_wavelength = 570e-3  # detection wavelength in um
-    zrangeN = 2.5  # Nyquist distance either side of focus to calculate in microns (depth of the sample)
-    dz = 0.4  # step size in axial direction of PSF in um
+    zrangeN = 6  # Nyquist distance either side of focus to calculate in microns (depth of the sample)
     fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
     drift = 0
@@ -77,18 +76,10 @@ class Base_simulator:
             self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius self.krmax.
         self.spherical = self.sph_abb * np.sqrt(5) * (6 * ((self.kr / self.krmax) ** 4 - (self.kr / self.krmax) ** 2) + 1)
-        self.Nz = int(2 * np.ceil(self.zrangeN / self.dz))
-        self.dz = 2 * self.zrangeN / self.Nz
         # Nyquist sampling in z
         self.dzn = self.det_wavelength / (2 * self.n * (1 - np.cos(np.arcsin(self.det_NA / self.n))))
         self.Nzn = int(2 * np.ceil(self.zrangeN / self.dzn))
-        self.dzn = 2 * self.zrangeN / self.Nzn
-        if self.Nz < self.Nzn:
-            self.Nz = self.Nzn
-            self.dz = self.dzn
-        else:
-            self.Nzn = self.Nz
-            self.dzn = self.dz
+        self.dzn = 2 * self.zrangeN / self.Nzn  # step size in axial direction of PSF in um
         if (self.acc == 1) | (self.acc == 2):
             self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
 
@@ -284,9 +275,9 @@ class Base_simulator:
             psf_y[nz, :, :] = intensityy
             psf_z[nz, :, :] = intensityz
             nz = nz + 1
-        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
-        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
-        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
+        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(pupil) / plen
+        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(pupil) / plen
+        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(pupil) / plen
         return psf_x, psf_y, psf_z
 
     def get_scalar_psf(self):
@@ -301,9 +292,9 @@ class Base_simulator:
             # default 'backwards' normalisation: psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
-        psf = psf / self.xp.sum(pupil ** 2) * (self.Nz / self.Nzn)
+        psf = psf / self.xp.sum(pupil ** 2)
         # normalisation factor: Nn ** 2, for use with norm='backwards' ifft:
-        # psf = psf * (self.Nn **2 / self.xp.sum(pupil ** 2)) * (self.Nz / self.Nzn)
+        # psf = psf * (self.Nn **2 / self.xp.sum(pupil ** 2))
         return psf
 
     def raw_image_stack_brownian(self):
@@ -360,10 +351,11 @@ class Base_simulator:
         start_Brownian = time.time()
         tplane = 0
         yield "Starting stack"
+        # self.points[:, 2] -= self.zdrift * (self.tpoints / self._nsteps) / 2000
         for t in np.arange(0, self.tpoints, self._nsteps):
             for msg in self.phase_tilts():
                 yield f'planes at time point = {t} of {self.tpoints}, {msg}'
-            # self.points[:, 2] += self.dzn
+            # self.points[:, 2] += self.zdrift / 1000
             for i in range(self._nsteps):
                 if (self.acc == 0) | (self.acc == 3):
                     if self.psf_calc == 'vector_rigid':
