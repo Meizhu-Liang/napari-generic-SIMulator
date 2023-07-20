@@ -48,7 +48,7 @@ class Base_simulator:
     ill_wavelength = 520e-3  # illumination wavelength in um
     det_wavelength = 570e-3  # detection wavelength in um
     zrangeN = 6  # Nyquist distance either side of focus to calculate in microns (depth of the sample)
-    fwhmz = 3.0  # FWHM of light sheet in z
+    # fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
     drift = 0
     spherical = 0  # spherical aberration in um
@@ -60,7 +60,7 @@ class Base_simulator:
             self.xp = cp
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
-        self.sigmaz = self.fwhmz / 2.355
+        # self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
         self.res = self.det_wavelength / (2 * self.det_NA)
         self.dxn = self.res / 2  # 2 * Nyquist frequency in x and y.

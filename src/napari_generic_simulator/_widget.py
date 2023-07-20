@@ -253,7 +253,6 @@ class SIMulator(QWidget):
         self.tpoints = FloatSpinBox(value=140, name='spin', label='tpoints', min=0, max=500, step=1)
         self.xdrift = FloatSpinBox(value=0.0, name='spin', label='xdrift(nm)', min=0.0, max=1000.0, step=5)
         self.zdrift = FloatSpinBox(value=50.0, name='spin', label='zdrift(nm)', min=0.0, max=1000.0, step=5)
-        self.fwhmz = FloatSpinBox(value=3.0, name='spin', label='fwhmz(μm)', min=0.0, max=10.0)
         self.drift = FloatSpinBox(value=0.0, name='spin', label='Brownian motion(nm)', min=0.0, max=1000.0, step=5)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
         self.lable = Label(value='aberration')
@@ -262,9 +261,8 @@ class SIMulator(QWidget):
         """return the current parameter list"""
         return [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
                 self.Psf.value, self.N.value, self.pixel_size.value, self.magnification.value, self.ill_NA.value,
-                self.det_NA.value, self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
-                self.zrange, self.tpoints.value, self.xdrift.value, self.zdrift.value,
-                self.fwhmz.value, self.drift.value, self.sph_abb.value]
+                self.det_NA.value, self.n.value, self.ill_wavelength.value, self.det_wavelength.value, self.zrange,
+                self.tpoints.value, self.xdrift.value, self.zdrift.value, self.drift.value, self.sph_abb.value]
 
     def set_att(self):
         """Sets attributes in the simulation class. Executed frequently to update the parameters"""
@@ -328,16 +326,14 @@ class SIMulator(QWidget):
         self.tpoints.value = self.sim.tpoints
         self.sim.xdrift = self.xdrift.value
         self.sim.zdrift = self.zdrift.value
-        self.sim.fwhmz = self.fwhmz.value
         self.sim.drift = self.drift.value
         self.sim.sph_abb = self.sph_abb.value
         self.used_par_list = [self.SIM_mode.value, self.Polarisation.value, self.Acceleration.value,
                               self.Psf.value,
                               self.N.value, self.pixel_size.value, self.magnification.value, self.ill_NA.value,
-                              self.det_NA.value,
-                              self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
+                              self.det_NA.value, self.n.value, self.ill_wavelength.value, self.det_wavelength.value,
                               self.zrange, self.tpoints.value, self.xdrift.value, self.zdrift.value,
-                              self.fwhmz.value, self.drift.value, self.sph_abb.value]
+                              self.drift.value, self.sph_abb.value]
 
     def start_simulator(self):
         """Starts the raw images generators and create the frequency space"""
@@ -371,8 +367,8 @@ class SIMulator(QWidget):
             self.messageBox.value = f'Please select a point-cloud layer'
         else:
             def show_img(data):
-                self._viewer.add_image(data[0], name='raw image stack',
-                                       scale=(self.zdrift.value * 0.001,
+                self._viewer.add_image(data, name='raw image stack',
+                                       scale=(self.zrange * 2 / self.tpoints.value + self.zdrift.value * 0.001,
                                               self.pixel_size.value / self.magnification.value,
                                               self.pixel_size.value / self.magnification.value),
                                        translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
@@ -387,9 +383,9 @@ class SIMulator(QWidget):
                                                  'ill_wavelength': self.ill_wavelength.value,
                                                  'det_wavelength': self.det_wavelength.value, 'z range': self.zrange,
                                                  'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
-                                                 'zdrift': self.zdrift.value, 'fwhmz': self.fwhmz.value,
-                                                 'Brownian': self.drift.value, 'sph_abb': self.sph_abb.value})
-                self._viewer.dims.current_step = (data[1][0] // 2, data[1][1], data[1][2])
+                                                 'zdrift': self.zdrift.value, 'Brownian': self.drift.value,
+                                                 'sph_abb': self.sph_abb.value})
+                self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2)
                 delattr(self, 'points')
 
             @thread_worker(connect={"returned": show_img})
@@ -401,7 +397,7 @@ class SIMulator(QWidget):
                         self.messageBox.value = next(t)
                 except Exception as e:
                     print(e)
-                return self.sim.img, self.sim.img.shape
+                return self.sim.img
 
             _get_results()
 
@@ -412,7 +408,7 @@ class SIMulator(QWidget):
                 Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
                                    self.pixel_size, self.ill_NA, self.det_NA, self.n]),
                 Container(widgets=[self.ill_wavelength, self.det_wavelength, self.magnification, self.tpoints,
-                                   self.xdrift, self.zdrift, self.fwhmz, self.drift, self.sph_abb, ])],
+                                   self.xdrift, self.zdrift, self.drift, self.sph_abb, ])],
             layout='horizontal')
 
         # 'save and print' widgets
@@ -522,7 +518,7 @@ class SIMulator(QWidget):
                 else:
                     try:
                         self._viewer.add_image(self.sim.illumination_stack(),
-                                               scale=(self.zdrift.value * 0.001,
+                                               scale=(self.zrange * 2 / self.tpoints.value + self.zdrift.value * 0.001,
                                                       self.pixel_size.value / self.magnification.value,
                                                       self.pixel_size.value / self.magnification.value),
                                                translate=(-self.zdrift.value * 0.001 * self.tpoints.value / 2,
@@ -531,8 +527,8 @@ class SIMulator(QWidget):
                                                interpolation2d='spline36',
                                                name='illumination')
                         self._viewer.dims.current_step = (self.sim.illumination_stack().shape[0] // 2,
-                                                          self.sim.illumination_stack().shape[1],
-                                                          self.sim.illumination_stack().shape[2])
+                                                          self.sim.illumination_stack().shape[1] // 2,
+                                                          self.sim.illumination_stack().shape[2] // 2)
                     except Exception as e:
                         print(str(e))
 
