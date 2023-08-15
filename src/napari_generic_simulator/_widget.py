@@ -436,10 +436,8 @@ class SIMulator(QWidget):
             """Saves the selected image layer as a tif file with tags"""
             if hasattr(self._viewer.layers.selection.active, 'data'):
                 try:
-                    options = QFileDialog.Options()
-                    filename = QFileDialog.getSaveFileName(self, "Save a file", options=options,
-                                                           filter='Images (*.tif)')
-                    tifffile.imwrite(filename[0], self._viewer.layers.selection.active.data,
+                    filename, _ = QFileDialog.getSaveFileName(self, "Save a file", filter='Images (*.tif)')
+                    tifffile.imwrite(filename, self._viewer.layers.selection.active.data,
                                      description=str(self._viewer.layers.selection.active.metadata))
                 except Exception as e:
                     print(str(e))
