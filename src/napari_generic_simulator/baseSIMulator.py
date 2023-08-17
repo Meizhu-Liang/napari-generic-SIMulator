@@ -22,7 +22,7 @@ try:
 
     print('torch imported')
     import_torch = True
-    if torch.has_cuda:  # or torch.has_mps:
+    if torch.has_cuda:
         torch_GPU = True
     else:
         torch_GPU = False
@@ -35,8 +35,8 @@ class Base_simulator:
     points = None
     npoints = 0
     xp = np
-    pol = None  # polarisation
     acc = None  # acceleration
+    pol = None  # polarisation
     psf_calc = None
     _tdev = None
     N = 512  # points to use in FFT
@@ -47,9 +47,8 @@ class Base_simulator:
     n = 1.33  # refractive index at sample
     ill_wavelength = 520e-3  # illumination wavelength in um
     det_wavelength = 570e-3  # detection wavelength in um
-    zrange = 7.0  # distance either side of focus to calculate, in microns, could be arbitrary
-    dz = 0.4  # step size in axial direction of PSF in um
-    fwhmz = 3.0  # FWHM of light sheet in z
+    zrangeN = 6  # Nyquist distance either side of focus to calculate in microns (depth of the sample)
+    # fwhmz = 3.0  # FWHM of light sheet in z
     random_seed = 123
     drift = 0
     spherical = 0  # spherical aberration in um
@@ -61,7 +60,7 @@ class Base_simulator:
             self.xp = cp
         np.random.seed(self.random_seed)
         # self.seed(1234)  # set random number generator seed
-        self.sigmaz = self.fwhmz / 2.355
+        # self.sigmaz = self.fwhmz / 2.355
         self.dx = self.pixel_size / self.magnification  # Sampling in lateral plane at the sample in um
         self.res = self.det_wavelength / (2 * self.det_NA)
         self.dxn = self.res / 2  # 2 * Nyquist frequency in x and y.
@@ -77,25 +76,12 @@ class Base_simulator:
             self.xp.linspace(-self.dk * self.Nn / 2, self.dk * self.Nn / 2 - self.dk, self.Nn))
         self.kr = np.sqrt(self.kx ** 2 + self.ky ** 2)  # Raw pupil function, pupil defined over circle of radius self.krmax.
         self.spherical = self.sph_abb * np.sqrt(5) * (6 * ((self.kr / self.krmax) ** 4 - (self.kr / self.krmax) ** 2) + 1)
-        self.Nz = int(2 * np.ceil(self.zrange / self.dz))
-        self.dz = 2 * self.zrange / self.Nz
         # Nyquist sampling in z
         self.dzn = self.det_wavelength / (2 * self.n * (1 - np.cos(np.arcsin(self.det_NA / self.n))))
-        self.Nzn = int(2 * np.ceil(self.zrange / self.dzn))
-        self.dzn = 2 * self.zrange / self.Nzn
-        if self.Nz < self.Nzn:
-            self.Nz = self.Nzn
-            self.dz = self.dzn
-        else:
-            self.Nzn = self.Nz
-            self.dzn = self.dz
-        if (self.acc == 1):
-            self._tdev = torch.device('cpu')
-        elif (self.acc == 2):
-            if torch.has_mps:
-                self._tdev = torch.device('mps')
-            elif torch.has_cuda:
-                self._tdev = torch.device('cuda')
+        self.Nzn = int(2 * np.ceil(self.zrangeN / self.dzn))
+        self.dzn = 2 * self.zrangeN / self.Nzn  # step size in axial direction of PSF in um
+        if (self.acc == 1) | (self.acc == 2):
+            self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
 
         # pre allocate phasetilts arrays
         if (self.acc == 0) or (self.acc == 3):
@@ -117,7 +103,7 @@ class Base_simulator:
         """Generates phase tilts in frequency space"""
         xyrange = self.Nn / 2 * self.dxn
         dkxy = np.pi / xyrange
-        dkz = np.pi / self.zrange
+        dkz = np.pi / self.zrangeN
         if (self.acc == 0) or (self.acc == 3):
             kxy = self.xp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=self.xp.single)
             kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
@@ -137,7 +123,8 @@ class Base_simulator:
             for pstep in range(self._phaseStep):
                 self.points += self.drift * np.random.standard_normal(3) / 1000
                 self.points[:, 0] += self.xdrift / 1000
-                self.points[:, 2] += self.zdrift / 1000
+                if self.zdrift:
+                    self.points[:, 2] += self.zdrift / 1000
                 istep = pstep + self._phaseStep * astep  # index of the steps
                 prog = (100 * itcount) // total_its
                 if prog > lastProg + 9:
@@ -155,11 +142,11 @@ class Base_simulator:
                     py = self.xp.exp(1j * kxy[self.xp.newaxis, :] * y[:, self.xp.newaxis])
                     pz = self.xp.exp(1j * kz[self.xp.newaxis, :] * z[:, self.xp.newaxis])
                     if self.psf_calc == 'vector_rigid':
-                        ill = self.xp.array(self._ill_obj_vec(x, y, z, pstep, astep),
+                        ill = self.xp.array(self._ill_obj_vec(x, y, pstep, astep),
                                             dtype=self.xp.single)
                         oe.contract('im,il,ik,ij->mjkl', ill, px, py, pz, out=self.phasetilts[istep])
                     else:
-                        ill = self.xp.array(self._ill_obj(x, y, z, pstep, astep),
+                        ill = self.xp.array(self._ill_obj(x, y, pstep, astep),
                                             dtype=self.xp.single)
                         oe.contract('i,il,ik,ij->jkl', ill, px, py, pz, out=self.phasetilts[istep])
                 else:
@@ -171,11 +158,11 @@ class Base_simulator:
                     py = torch.exp(1j * kxy[None, :] * y[:, None])
                     pz = torch.exp(1j * kz[None, :] * z[:, None])
                     if self.psf_calc == 'vector_rigid':
-                        ill = torch.tensor(self._ill_obj_vec(self.points[:, 0], self.points[:, 1], self.points[:, 2], pstep, astep),
+                        ill = torch.tensor(self._ill_obj_vec(self.points[:, 0], self.points[:, 1], pstep, astep),
                                            dtype=torch.float32, device=self._tdev)
                         oe.contract('im,il,ik,ij->mjkl', ill, px, py, pz, out=self.phasetilts[istep])
                     else:
-                        ill = torch.tensor(self._ill_obj(self.points[:, 0], self.points[:, 1], self.points[:, 2], pstep, astep),
+                        ill = torch.tensor(self._ill_obj(self.points[:, 0], self.points[:, 1], pstep, astep),
                                            dtype=torch.float32, device=self._tdev)
                         oe.contract('i,il,ik,ij->jkl', ill, px, py, pz, out=self.phasetilts[istep])
         self.elapsed_time = time.time() - start_time
@@ -260,7 +247,7 @@ class Base_simulator:
         fx3 = self.xp.sqrt(self.k0_det / kz) * kx / self.k0_det * pupil
         fy3 = self.xp.sqrt(self.k0_det / kz) * ky / self.k0_det * pupil
 
-        for z in np.arange(-self.zrange, self.zrange, self.dzn):
+        for z in np.arange(-self.zrangeN, self.zrangeN, self.dzn):
             pupil_phase = np.exp(1j * (z * kz + self.spherical))  # change of the pupil in the phase
             Exx = self.xp.fft.fftshift(
                 self.xp.fft.ifft2(fx1 * pupil_phase))  # x-polarised field at camera for x-oriented dipole
@@ -289,9 +276,9 @@ class Base_simulator:
             psf_y[nz, :, :] = intensityy
             psf_z[nz, :, :] = intensityz
             nz = nz + 1
-        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
-        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
-        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(pupil) * self.Nz / self.Nzn / plen
+        psf_x = psf_x * self.Nn ** 2 / self.xp.sum(pupil) / plen
+        psf_y = psf_y * self.Nn ** 2 / self.xp.sum(pupil) / plen
+        psf_z = psf_z * self.Nn ** 2 / self.xp.sum(pupil) / plen
         return psf_x, psf_y, psf_z
 
     def get_scalar_psf(self):
@@ -300,15 +287,15 @@ class Base_simulator:
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < (self.krmax)
         kz = np.sqrt(self.k0_det ** 2 - (self.kr * pupil) ** 2)
-        for z in np.arange(-self.zrange, self.zrange, self.dzn):
+        for z in np.arange(-self.zrangeN, self.zrangeN, self.dzn):
             c = np.exp(1j * (z * kz + self.spherical)) * pupil
             psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c, norm='ortho'))) ** 2
             # default 'backwards' normalisation: psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
-        psf = psf / self.xp.sum(pupil ** 2) * (self.Nz / self.Nzn)
+        psf = psf / self.xp.sum(pupil ** 2)
         # normalisation factor: Nn ** 2, for use with norm='backwards' ifft:
-        # psf = psf * (self.Nn **2 / self.xp.sum(pupil ** 2)) * (self.Nz / self.Nzn)
+        # psf = psf * (self.Nn **2 / self.xp.sum(pupil ** 2))
         return psf
 
     def raw_image_stack_brownian(self):
@@ -356,7 +343,10 @@ class Base_simulator:
         yield "3d otf calculated"
 
         self.points[:, 0] -= self.xdrift * self.tpoints / 2000
-        self.points[:, 2] -= self.zdrift * self.tpoints / 2000
+        if self.zdrift:
+            self.points[:, 2] -= self.zdrift * self.tpoints / 2000
+        else:
+            self.points[:, 2] -= self.zstep * (self.tpoints / self._nsteps) / 2000
         if (self.acc == 0) | (self.acc == 3):
             img = self.xp.zeros((int(self.tpoints), self.N, self.N), dtype=np.single)
         else:
@@ -365,10 +355,12 @@ class Base_simulator:
         start_Brownian = time.time()
         tplane = 0
         yield "Starting stack"
+
         for t in np.arange(0, self.tpoints, self._nsteps):
             for msg in self.phase_tilts():
                 yield f'planes at time point = {t} of {self.tpoints}, {msg}'
-            # self.points[:, 2] += self.dzn
+            if self.zstep:
+                self.points[:, 2] += self.zstep / 1000
             for i in range(self._nsteps):
                 if (self.acc == 0) | (self.acc == 3):
                     if self.psf_calc == 'vector_rigid':
@@ -431,7 +423,6 @@ class Base_simulator:
         xyvals = (self.xp.arange(self.N) - self.N / 2) * self.dx
         xarr, yarr = self.xp.meshgrid(xyvals, xyvals)
         xarr_l, yarr_l = self.xp.array(xarr).flatten(), self.xp.array(yarr).flatten()
-        zarr_l = self.xp.zeros_like(xarr_l)
         self.npoints = xarr_l.shape[0]
 
         start_time = time.time()
@@ -440,7 +431,7 @@ class Base_simulator:
             self.jones_vectors(astep)
             for pstep in range(self._phaseStep):
                 itcount += 1
-                ill_1d = self._ill_obj(xarr_l, yarr_l, zarr_l, pstep, astep)
+                ill_1d = self._ill_obj(xarr_l, yarr_l, pstep, astep)
                 illumination[itcount, :, :] = self.xp.reshape(ill_1d, (self.N, self.N))
 
         for i in range(1, int(self.tpoints) // self._nsteps):
