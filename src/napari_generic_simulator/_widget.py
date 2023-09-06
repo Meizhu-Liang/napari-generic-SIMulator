@@ -125,7 +125,7 @@ class PointCloud(QWidget):
         print('Point cloud generated')
         if hasattr(self, 'pc'):
             try:
-                self._viewer.add_points(-self.pc[:, ::-1], size=self.fil_step.value, name=f'{re_dep}μm_{name}')
+                self._viewer.add_points(-self.pc[:, ::-1], size=0.05, name=f'{re_dep}μm_{name}', translate=(0, 0, 0))
             except Exception as e:
                 print(e)
 
@@ -364,27 +364,25 @@ class SIMulator(QWidget):
             delattr(self, 'points')
         self.points = -layer.data[:, ::-1]
         self.npoints = self.points.shape[0]
-        self.zrange = self.points[2].max() - self.points[2].min()
+        self.zrange = np.ceil(self.points[0].max() - self.points[0].min() + 0.5)
         self.messageBox.value = f'Selected sample layer: {layer.name}'
         self.get_results()
 
     def get_results(self):
+        self.set_att()
         if not hasattr(self, 'points'):
             self.messageBox.value = f'Please select a point-cloud layer'
         else:
             if self.zmove.name == 'zdrift(nm)':
-                # self.zsc = self.zrange * 2 / self.tpoints.value + self.zmove.value * 0.001  # z scale
-                self.zsc = 1e-9 + self.zmove.value * 0.001  # z scale
-                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / 2  # z translate
+                self.zsc = self.zrange / self.tpoints.value + self.zmove.value * 0.001  # z scale
+                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / 2 - self.zrange / 2  # z translate
             else:
-                # self.zsc = self.zrange * 2 / self.tpoints.value + self.zmove.value * 0.001 / self.sim._nsteps
-                self.zsc = 1e-9 + self.zmove.value * 0.001 / self.sim._nsteps
+                self.zsc = self.zrange * 2 / self.tpoints.value + self.zmove.value * 0.001 / self.sim._nsteps
                 self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / self.sim._nsteps / 2  # z translate
+            xysc = self.pixel_size.value / self.magnification.value  # x or y scale
             def show_img(data):
                 self._viewer.add_image(data, name='raw image stack',
-                                       scale=(self.zsc,
-                                              self.pixel_size.value / self.magnification.value,
-                                              self.pixel_size.value / self.magnification.value),
+                                       scale=(self.zsc, xysc, xysc),
                                        translate=(self.ztr,
                                                   -self.pixel_size.value / self.magnification.value * self.N.value / 2,
                                                   -self.pixel_size.value / self.magnification.value * self.N.value / 2),
@@ -399,12 +397,14 @@ class SIMulator(QWidget):
                                                  'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
                                                  self.zmove.name: self.zmove.value, 'Brownian': self.drift.value,
                                                  'sph_abb': self.sph_abb.value})
-                self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2)
+                self._viewer.dims.range = ((-self.zrange / 2, self.zrange / 2, self.zrange / self.tpoints.value), (
+                                            -xysc * self.N.value / 2, xysc * self.N.value / 2, xysc),
+                                           (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
+                self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] / 2, data.shape[2] // 2)
                 delattr(self, 'points')
 
             @thread_worker(connect={"returned": show_img})
             def _get_results():
-                self.set_att()
                 t = self.sim.raw_image_stack_brownian()
                 try:
                     while True:
