@@ -424,19 +424,6 @@ class SIMulator(QWidget):
             _get_results()
 
     def wrap_widgets(self):
-        """Creates a widget containing all small widgets"""
-        w_parameters = Container(
-            widgets=[Container(widgets=[
-                                        Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration,
-                                                           self.Psf, self.N,
-                                                           self.ill_NA, self.det_NA, self.n]),
-                                        Container(widgets=[self.ill_wavelength, self.det_wavelength, self.pixel_size,
-                                                           self.magnification, self.tpoints,
-                                                           self.xdrift, self.drift, self.sph_abb])
-                                        ], layout='horizontal'),
-                     Container(widgets=[self.zchoice, self.zmove], layout='horizontal', labels=None)]
-            )
-
         # 'save and print' widgets
         save_tif_with_tags = PushButton(text='save_tif_with_tags')
 
@@ -559,7 +546,17 @@ class SIMulator(QWidget):
         w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif], layout='horizontal')
         w_show = Container(widgets=[show_psf, show_otf, show_illumination], layout='horizontal')
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[w_parameters,
+
+        self.w = Container(widgets=[Container(widgets=[
+                                        Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration,
+                                                           self.Psf, self.N,
+                                                           self.ill_NA, self.det_NA, self.n]),
+                                        Container(widgets=[self.ill_wavelength, self.det_wavelength, self.pixel_size,
+                                                           self.magnification, self.tpoints,
+                                                           self.xdrift, self.drift, self.sph_abb])
+                                        ], layout='horizontal'),
+                                    Container(widgets=[self.zchoice, self.zmove], layout='horizontal', labels=None),
                                     magicgui(self.select_layer, call_button='Calculate results'),
-                                    Container(widgets=[w_save_and_print, w_show, self.messageBox])],
+                                    w_save_and_print, w_show,
+                                    self.messageBox],
                            labels=None)
