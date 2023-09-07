@@ -126,7 +126,7 @@ class PointCloud(QWidget):
         print('Point cloud generated')
         if hasattr(self, 'pc'):
             try:
-                self._viewer.add_points(-self.pc[:, ::-1], size=0.05, name=f'{re_dep}μm_{name}', translate=(0, 0, 0))
+                self._viewer.add_points(-self.pc[:, ::-1], size=0.05, name=f'{re_dep}μm_{name}')
             except Exception as e:
                 print(e)
 
@@ -330,7 +330,7 @@ class SIMulator(QWidget):
         self.sim.ill_wavelength = self.ill_wavelength.value * 1e-3
         self.sim.det_wavelength = self.det_wavelength.value * 1e-3
         self.sim.zrangeN = self.zrange * 2
-        self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
+        self.sim.tpoints = int((self.tpoints.value // nsteps // 2) * nsteps * 2)
         self.tpoints.value = self.sim.tpoints
         self.sim.xdrift = self.xdrift.value
         if self.zchoice.value == 'zdrift(nm)':
@@ -384,8 +384,8 @@ class SIMulator(QWidget):
                 self.zsc = self.zrange / self.tpoints.value + self.zmove.value * 0.001  # z scale
                 self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / 2 - self.zrange / 2  # z translate
             else:
-                self.zsc = self.zrange * 2 / self.tpoints.value + self.zmove.value * 0.001 / self.sim._nsteps
-                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / self.sim._nsteps / 2  # z translate
+                self.zsc = self.zrange / self.tpoints.value / self.sim._nsteps + self.zmove.value * 0.001
+                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / self.sim._nsteps / 2 - self.zrange / 2   # z translate
             xysc = self.pixel_size.value / self.magnification.value  # x or y scale
             def show_img(data):
                 self._viewer.add_image(data, name='raw image stack',
@@ -404,7 +404,8 @@ class SIMulator(QWidget):
                                                  'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
                                                  self.zmove.name: self.zmove.value, 'Brownian': self.drift.value,
                                                  'sph_abb': self.sph_abb.value})
-                self._viewer.dims.range = ((-self.zrange / 2, self.zrange / 2, self.zrange / self.tpoints.value), (
+                zr = (self.ztr, -self.ztr, self.zsc)
+                self._viewer.dims.range = (zr, (
                                             -xysc * self.N.value / 2, xysc * self.N.value / 2, xysc),
                                            (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
                 self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] / 2, data.shape[2] // 2)

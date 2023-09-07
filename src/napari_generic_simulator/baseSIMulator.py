@@ -7,7 +7,6 @@ __author__ = "Meizhu Liang @Imperial College London"
 import numpy as np
 import opt_einsum as oe
 import time
-import tifffile
 
 try:
     import cupy as cp
