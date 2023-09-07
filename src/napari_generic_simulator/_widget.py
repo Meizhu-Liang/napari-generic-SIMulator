@@ -126,7 +126,7 @@ class PointCloud(QWidget):
         print('Point cloud generated')
         if hasattr(self, 'pc'):
             try:
-                self._viewer.add_points(-self.pc[:, ::-1], size=0.05, name=f'{re_dep}μm_{name}', translate=(0, 0, 0))
+                self._viewer.add_points(-self.pc[:, ::-1], size=0.05, name=f'{re_dep}μm_{name}')
             except Exception as e:
                 print(e)
 
@@ -252,7 +252,7 @@ class SIMulator(QWidget):
         self.ill_wavelength = SpinBox(value=540, label='λ  illumination(nm)', step=50)
         self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=50)
 
-        self.tpoints = FloatSpinBox(value=140,  label='tpoints', min=0, max=500, step=1)
+        self.tpoints = SpinBox(value=140,  label='tpoints', min=0, max=500, step=1)
         self.xdrift = FloatSpinBox(value=0.0, label='xdrift(nm)', min=0.0, max=1000.0, step=5)
         self.drift = FloatSpinBox(value=0.0, label='Brownian motion(nm)', min=0.0, max=1000.0, step=5)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
@@ -327,7 +327,7 @@ class SIMulator(QWidget):
         self.sim.ill_wavelength = self.ill_wavelength.value * 1e-3
         self.sim.det_wavelength = self.det_wavelength.value * 1e-3
         self.sim.zrangeN = self.zrange * 2
-        self.sim.tpoints = (self.tpoints.value // nsteps // 2) * nsteps * 2
+        self.sim.tpoints = int((self.tpoints.value // nsteps // 2) * nsteps * 2)
         self.tpoints.value = self.sim.tpoints
         self.sim.xdrift = self.xdrift.value
         if self.zchoice.value == 'zdrift(nm)':
@@ -381,8 +381,8 @@ class SIMulator(QWidget):
                 self.zsc = self.zrange / self.tpoints.value + self.zmove.value * 0.001  # z scale
                 self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / 2 - self.zrange / 2  # z translate
             else:
-                self.zsc = self.zrange * 2 / self.tpoints.value + self.zmove.value * 0.001 / self.sim._nsteps
-                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / self.sim._nsteps / 2  # z translate
+                self.zsc = self.zrange / self.tpoints.value / self.sim._nsteps + self.zmove.value * 0.001
+                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / self.sim._nsteps / 2 - self.zrange / 2   # z translate
             xysc = self.pixel_size.value / self.magnification.value  # x or y scale
             def show_img(data):
                 self._viewer.add_image(data, name='raw image stack',
@@ -401,7 +401,8 @@ class SIMulator(QWidget):
                                                  'tpoints': self.tpoints.value, 'xdrift': self.xdrift.value,
                                                  self.zmove.name: self.zmove.value, 'Brownian': self.drift.value,
                                                  'sph_abb': self.sph_abb.value})
-                self._viewer.dims.range = ((-self.zrange / 2, self.zrange / 2, self.zrange / self.tpoints.value), (
+                zr = (self.ztr, -self.ztr, self.zsc)
+                self._viewer.dims.range = (zr, (
                                             -xysc * self.N.value / 2, xysc * self.N.value / 2, xysc),
                                            (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
                 self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] / 2, data.shape[2] // 2)
