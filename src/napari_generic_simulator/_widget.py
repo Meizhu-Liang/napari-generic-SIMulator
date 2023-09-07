@@ -384,7 +384,7 @@ class SIMulator(QWidget):
                 self.zsc = self.zrange / self.tpoints.value + self.zmove.value * 0.001  # z scale
                 self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / 2 - self.zrange / 2  # z translate
             else:
-                self.zsc = self.zrange / (self.tpoints.value / self.sim._nsteps) + self.zmove.value * 0.001
+                self.zsc = (self.zrange / (self.tpoints.value / self.sim._nsteps) + self.zmove.value * 0.001) / self.sim._nsteps
                 self.ztr = -self.zmove.value * 0.001 * (self.tpoints.value / self.sim._nsteps) / 2 - self.zrange / 2  # z translate
             md = {'mode': str(self.SIM_mode.value),
                       'pol': str(self.Polarisation.value),
@@ -399,37 +399,18 @@ class SIMulator(QWidget):
                       'zChoice': self.zchoice.value, 'zmove': self.zmove.value,
                       'sph_abb': self.sph_abb.value}  # metadata
             xysc = self.pixel_size.value / self.magnification.value  # x or y scale
-            def show_img(data0):
-                if self.zchoice.value == 'zstep(nm)':
-                    data = np.reshape(data0, (
-                    int(self.tpoints.value / self.sim._nsteps), self.sim._nsteps, data0.shape[1], data0.shape[2]))
-
-                    self._viewer.add_image(data, name='raw image stack',
-                                           scale=(self.zsc, 1, xysc, xysc),
-                                           translate=(self.ztr, 0,
-                                                      -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                      -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                           metadata=md)
-                    zr = (self.ztr, -self.ztr, self.zsc)
-                    self._viewer.dims.range = (zr, (0,self.sim._nsteps,1), (
-                        -xysc * self.N.value / 2, xysc * self.N.value / 2, xysc),
-                                               (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
-                    self._viewer.dims.axis_labels = ('z', 'ph+or', 'x', 'y')
-                    self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] / 2, data.shape[2] // 2, data.shape[3] // 2)
-                else:
-                    data = data0
-                    self._viewer.add_image(data, name='raw image stack',
-                                           scale=(self.zsc, xysc, xysc),
-                                           translate=(self.ztr,
-                                                      -self.pixel_size.value / self.magnification.value * self.N.value / 2,
-                                                      -self.pixel_size.value / self.magnification.value * self.N.value / 2),
-                                           metadata=md)
-                    zr = (self.ztr, -self.ztr, self.zsc - 1e-9)
-                    self._viewer.dims.range = ((zr), (
-                        -xysc * self.N.value / 2, xysc * self.N.value / 2, xysc),
-                                               (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
-                    self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] / 2, data.shape[2] // 2)
-                print(-self.ztr, self.zsc, -2 * self.ztr / self.zsc)
+            def show_img(data):
+                self._viewer.add_image(data, name='raw image stack',
+                                       scale=(self.zsc, xysc, xysc),
+                                       translate=(self.ztr,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2,
+                                                  -self.pixel_size.value / self.magnification.value * self.N.value / 2),
+                                       metadata=md)
+                zr = (self.ztr, -self.ztr, -2 * self.ztr / self.tpoints.value)
+                self._viewer.dims.range = (zr,  (
+                    -xysc * self.N.value / 2, xysc * self.N.value / 2, xysc),
+                                           (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
+                self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2)
                 delattr(self, 'points')
 
             @thread_worker(connect={"returned": show_img})
