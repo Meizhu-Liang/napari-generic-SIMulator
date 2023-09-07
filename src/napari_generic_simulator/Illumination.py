@@ -52,24 +52,24 @@ class Illumination(Base_simulator):
 
     def jones_vectors(self, astep):
         self.theta = np.arcsin(self.ill_NA / self.n)
-        self.S = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)
+        self.S = self.xp.zeros((self._n_beams, 3), dtype=self.xp.complex64)
         for i in range(self._n_beams):
             phi_S = i * self._beam_a + astep * 2 * self.xp.pi / self._angleStep
             f_p = self.xp.array(self.polarised_field(phi_S))
-            self.S[:, i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)
+            self.S[i, :] = self.xp.transpose(self.rotation(phi_S, self.theta) @ f_p)
 
-    def _ill_obj(self, x, y, pstep, astep):
+    def _ill_obj(self, x, y, z, pstep, astep):
         """Illumination intensity applied on the object"""
-        ill = self.xp.sum(self._ill_obj_vec(x, y, pstep, astep), axis=1)  # take real part and round to 15 decimals
+        ill = self.xp.sum(self._ill_obj_vec(x, y, z, pstep, astep), axis=1)  # take real part and round to 15 decimals
         return ill
 
-    def _ill_obj_vec(self, x, y, pstep, astep):
+    def _ill_obj_vec(self, x, y, z, pstep, astep):
         """Vectorised illumination intensity applied on the object"""
         p = [0, pstep * 2 * np.pi / self._phaseStep, pstep * (-4) * np.pi / self._phaseStep]
         E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)  # exponential terms of field
+        xyz = self.xp.transpose(self.xp.stack([x, y, z]))
         for i in range(self._n_beams):
             phi_E = i * self._beam_a + astep * 2 * np.pi / self._angleStep + self.angle_error[i, astep]
-            xyz = self.xp.transpose(self.xp.stack([x, y, self.xp.zeros(self.npoints)]))
             e = self.xp.exp(-1j * (xyz @ self.rotation(phi_E, self.theta) @ self.xp.array([0, 0, self.k0_ill]) + p[i] +
                                    self.phase_error[i, astep, pstep]))
             E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
@@ -106,3 +106,55 @@ class RaHexIll(Illumination):
         self._beam_a = np.pi / 2  # angle between beam1 and beam2, beam2 and beam3
         self._nbands = 3
         super().__init__()
+
+class ConIll3D(Illumination):
+    """
+    Conventional three dimensional SIM with two carrier beams and a zero order beam.
+    """
+
+    def __init__(self):
+        self._phaseStep = 5
+        # Phase modulation on the beams (beam 0 is the zero order)
+        self._phases = np.array([[0, 0, 0],
+                       [0, 2 * np.pi / 5, -2 * np.pi / 5],
+                       [0, 4 * np.pi / 5, -4 * np.pi / 5],
+                       [0, 6 * np.pi / 5, -6 * np.pi / 5],
+                       [0, 8 * np.pi / 5, -8 * np.pi / 5]])
+        self._angleStep = 3
+        # Angle of the beams in the pupil - set zero order to same angle as +/- orders.
+        self._angles = np.array([[0, 0, 0],
+                                 [2 * np.pi / 3, 2 * np.pi / 3, 2 * np.pi / 3],
+                                 [4 * np.pi / 3, 4 * np.pi / 3, 4 * np.pi / 3]])
+        # Angle of the beams relative to the illumination cone angle - zero order should have 0 here.
+        self._alpha = np.array([[0, -1, 1],
+                                [0, -1, 1],
+                                [0, -1, 1]])
+        # Amplitude of the three beams, same here for all astep and pstep.
+        self._ampl = np.array([1, 1, 1])
+        self._n_beams = 3
+        self._nbands = 6
+        super().__init__()
+
+    def jones_vectors(self, astep):
+        self.theta = np.arcsin(self.ill_NA / self.n)
+        self.S = self.xp.zeros((self._n_beams, 3), dtype=self.xp.complex64)
+        for i in range(self._n_beams):
+            phi_S = self._angles[astep, i]
+            f_p = self.xp.array(self.polarised_field(phi_S))
+            self.S[i, :] = self._ampl[i] * self.xp.transpose(self.rotation(phi_S, self.theta * self._alpha[astep, i]) @ f_p)
+
+    def _ill_obj_vec(self, x, y, z, pstep, astep):
+        """Vectorised illumination intensity applied on the object"""
+        p = self._phases[pstep, :]
+        E = self.xp.zeros((self.npoints, self._n_beams, 3), dtype=self.xp.complex64)  # exponential terms of field
+        xyz = self.xp.transpose(self.xp.stack([x, y, z]))
+        for i in range(self._n_beams):
+            phi_E = self._angles[astep, i]
+            e = self.xp.exp(-1j * (xyz @
+                                   self.rotation(phi_E, self.theta * self._alpha[astep, i]) @
+                                   self.xp.array([0, 0, self.k0_ill]) + p[i]))
+            E[:, i, :] = self.xp.transpose(self.xp.array([e, ] * 3))
+        F = self.xp.sum(self.S * E, axis=1, dtype=self.xp.complex64)  # field of illumination
+        # to calculate intensity: ill = F @ F_conjugate
+        ill = (F * self.xp.conjugate(F)).real.round(15)  # take real part and round to 15 decimals
+        return ill
