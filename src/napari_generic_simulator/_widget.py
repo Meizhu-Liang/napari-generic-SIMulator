@@ -171,11 +171,14 @@ class PointCloud(QWidget):
                                                            auto_call=False),
                                                   magicgui(self.load_pc, call_button='Load point cloud',
                                                            auto_call=False)], layout="horizontal", labels=None)
-        self.c_w = Container(widgets=[self.w_samples, Container(widgets=[self.random_seed]),
-                                      Container(widgets=[self.w_sph, self.w_fil, magicgui(self.gen_pc,
-                                                                                          call_button='Generate point cloud',
-                                                                                          auto_call=False),
-                                                         self.comprehensive_w], labels=None)])
+        self.c_w = Container(widgets=[Container(widgets=[self.random_seed]),
+                                      self.w_samples,
+                                      self.w_sph,
+                                      self.w_fil,
+                                      Container(widgets=[magicgui(self.gen_pc,
+                                               call_button='Generate point cloud',
+                                               auto_call=False)], labels=None),
+                                      self.comprehensive_w])
 
 class Sim_mode(Enum):
     HEXSIM = 0
@@ -249,10 +252,10 @@ class SIMulator(QWidget):
         self.ill_NA = FloatSpinBox(value=1, name='spin', label='NA  illumination', min=0.0, step=0.1)
         self.det_NA = FloatSpinBox(value=1.0, name='spin', label='NA  detection', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
-        self.ill_wavelength = SpinBox(value=540, label='λ  illumination(nm)', step=50)
-        self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=50)
+        self.ill_wavelength = SpinBox(value=540, label='λ  illumination(nm)', step=10)
+        self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=10)
 
-        self.tpoints = FloatSpinBox(value=140,  label='tpoints', min=0, max=500, step=1)
+        self.tpoints = SpinBox(value=140,  label='tpoints', min=0, max=500, step=1)
         self.xdrift = FloatSpinBox(value=0.0, label='xdrift(nm)', min=0.0, max=1000.0, step=5)
         self.drift = FloatSpinBox(value=0.0, label='Brownian motion(nm)', min=0.0, max=1000.0, step=5)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
@@ -423,12 +426,15 @@ class SIMulator(QWidget):
         """Creates a widget containing all small widgets"""
         w_parameters = Container(
             widgets=[Container(widgets=[
-                Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
-                                   self.pixel_size, self.ill_NA, self.det_NA, self.n]),
-                Container(widgets=[self.ill_wavelength, self.det_wavelength, self.magnification, self.tpoints,
-                                   self.xdrift, self.drift, self.sph_abb])], layout='horizontal'),
-                Container(widgets=[self.zchoice, self.zmove], layout='horizontal', labels=None)]
-                )
+                                        Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration,
+                                                           self.Psf, self.N,
+                                                           self.ill_NA, self.det_NA, self.n]),
+                                        Container(widgets=[self.ill_wavelength, self.det_wavelength, self.pixel_size,
+                                                           self.magnification, self.tpoints,
+                                                           self.xdrift, self.drift, self.sph_abb])
+                                        ], layout='horizontal'),
+                     Container(widgets=[self.zchoice, self.zmove], layout='horizontal', labels=None)]
+            )
 
         # 'save and print' widgets
         save_tif_with_tags = PushButton(text='save_tif_with_tags')
@@ -552,6 +558,7 @@ class SIMulator(QWidget):
         w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif], layout='horizontal')
         w_show = Container(widgets=[show_psf, show_otf, show_illumination], layout='horizontal')
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[w_parameters, magicgui(self.select_layer, call_button='Calculate results'),
-                                    w_save_and_print, w_show, self.messageBox],
+        self.w = Container(widgets=[w_parameters,
+                                    magicgui(self.select_layer, call_button='Calculate results'),
+                                    Container(widgets=[w_save_and_print, w_show, self.messageBox])],
                            labels=None)
