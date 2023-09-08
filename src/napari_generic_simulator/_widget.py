@@ -135,7 +135,7 @@ class PointCloud(QWidget):
             try:
                 filename, _ = QFileDialog.getSaveFileName(self, 'Save a file', filter='Files (*.pcd)')
                 print(filename)
-                pc = pypcd.make_xyz_point_cloud(-self._viewer.layers.selection.active.data[:, ::-1])
+                pc = pypcd.make_xyz_point_cloud(-self._viewer.layers.selection.active.data)
                 pypcd.save_point_cloud(pc, filename)
                 print('Point cloud saved')
             except Exception as e:
