@@ -170,7 +170,7 @@ class PointCloud(QWidget):
         self.comprehensive_w = Container(widgets=[magicgui(self.save_pc, call_button='Save current layer as .pcd',
                                                            auto_call=False),
                                                   magicgui(self.load_pc, call_button='Load point cloud',
-                                                           auto_call=False)], layout="horizontal", labels=None)
+                                                           auto_call=False)],labels=None)
         self.c_w = Container(widgets=[Container(widgets=[self.random_seed]),
                                       self.w_samples,
                                       self.w_sph,
@@ -545,20 +545,16 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
-        w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif], layout='horizontal')
-        w_show = Container(widgets=[show_psf, show_otf, show_illumination], layout='horizontal')
+        w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif])
+        w_show = Container(widgets=[show_psf, show_otf, show_illumination])
         self.messageBox = LineEdit(value='Messages')
-
         self.w = Container(widgets=[Container(widgets=[
-                                        Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration,
-                                                           self.Psf, self.N,
-                                                           self.ill_NA, self.det_NA, self.n]),
-                                        Container(widgets=[self.ill_wavelength, self.det_wavelength, self.pixel_size,
-                                                           self.magnification, self.tpoints,
-                                                           self.xdrift, self.drift, self.sph_abb])
-                                        ], layout='horizontal'),
-                                    Container(widgets=[self.zchoice, self.zmove], layout='horizontal', labels=None),
-                                    magicgui(self.select_layer, call_button='Calculate results'),
-                                    w_save_and_print, w_show,
-                                    self.messageBox],
-                           labels=None)
+            Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration,
+                               self.Psf, self.N,
+                               self.ill_NA, self.det_NA, self.n, self.ill_wavelength, self.det_wavelength,
+                               self.pixel_size,
+                               self.magnification, self.tpoints,
+                               self.xdrift, self.drift, self.sph_abb])]),
+            Container(widgets=[self.zchoice, self.zmove], labels=None),
+            magicgui(self.select_layer, call_button='Calculate results'),
+            w_save_and_print, w_show, self.messageBox], labels=None)
