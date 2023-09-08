@@ -9,7 +9,7 @@ from .baseSIMulator import import_cp, import_torch, torch_GPU
 from .Illumination import ConIll, HexIll, RaHexIll, ConIll3D
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
-from magicgui.widgets import SpinBox, Label, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons, PushButton, RadioButton
+from magicgui.widgets import SpinBox, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons, PushButton
 from napari.layers import Layer
 import tifffile
 import numpy as np
@@ -171,13 +171,10 @@ class PointCloud(QWidget):
                                                            auto_call=False),
                                                   magicgui(self.load_pc, call_button='Load point cloud',
                                                            auto_call=False)],labels=None)
-        self.c_w = Container(widgets=[Container(widgets=[self.random_seed]),
-                                      self.w_samples,
-                                      self.w_sph,
-                                      self.w_fil,
+        self.c_w = Container(widgets=[Container(widgets=[self.random_seed]), self.w_samples, self.w_sph, self.w_fil,
                                       Container(widgets=[magicgui(self.gen_pc,
-                                               call_button='Generate point cloud',
-                                               auto_call=False)], labels=None),
+                                                                  call_button='Generate point cloud',
+                                                                  auto_call=False)], labels=None),
                                       self.comprehensive_w])
 
 class Sim_mode(Enum):
@@ -406,11 +403,12 @@ class SIMulator(QWidget):
                                                   -self.pixel_size.value / self.magnification.value * self.N.value / 2,
                                                   -self.pixel_size.value / self.magnification.value * self.N.value / 2),
                                        metadata=md)
-                zr = (self.ztr, -self.ztr, -2 * self.ztr / self.tpoints.value)
+                zr = (self.ztr, -self.ztr, -2 * self.ztr / self.tpoints.value - 1e-9)
                 self._viewer.dims.range = (zr,  (
                     -xysc * self.N.value / 2, xysc * self.N.value / 2, xysc),
                                            (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
                 self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2)
+                self._viewer.dims.axis_labels = ('z', 'x', 'y')
                 delattr(self, 'points')
 
             @thread_worker(connect={"returned": show_img})
