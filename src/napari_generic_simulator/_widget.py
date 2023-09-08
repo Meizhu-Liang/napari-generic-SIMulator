@@ -330,7 +330,7 @@ class SIMulator(QWidget):
         self.sim.ill_wavelength = self.ill_wavelength.value * 1e-3
         self.sim.det_wavelength = self.det_wavelength.value * 1e-3
         self.sim.zrangeN = self.zrange * 2
-        self.sim.tpoints = int((self.tpoints.value // nsteps // 2) * nsteps * 2)
+        self.sim.tpoints = int((self.tpoints.value // nsteps / 2) * nsteps * 2)
         self.tpoints.value = self.sim.tpoints
         self.sim.xdrift = self.xdrift.value
         if self.zchoice.value == 'zdrift(nm)':
