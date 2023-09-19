@@ -200,12 +200,12 @@ class Psf_calc(Enum):
 
 class Accel(Enum):
     NUMPY = 0
-    if import_cp:
-        CUPY = 3
     if import_torch:
         TORCH_CPU = 1
         if torch_GPU:
             TORCH_GPU = 2
+    if import_cp:
+        CUPY = 3
 
 
 
@@ -457,12 +457,14 @@ class SIMulator(QWidget):
                                                        -self.sim.dzn * self.sim.Nzn / 2,
                                                        -self.sim.dxn * self.sim.Nn / 2,
                                                        -self.sim.dxn * self.sim.Nn / 2),
-                                                   name='3d-PSF')
+                                                   name='3d-PSF', interpolation2d='spline36', colormap='viridis')
                                 plt.figure()
                                 plt.plot(np.sum(self.sim.psf_x, axis=(1, 2)))
                                 plt.plot(np.sum(self.sim.psf_y, axis=(1, 2)))
                                 plt.plot(np.sum(self.sim.psf_z, axis=(1, 2)))
                                 plt.title(f'max(x) = {np.sum(self.sim.psf_x, axis=(1, 2)).max():.4f}, max(z) = {np.sum(self.sim.psf_z, axis=(1, 2)).max():.4f}')
+                                plt.xlabel('z')
+                                plt.ylabel('power sum (a.u.)')
                                 plt.show()
                             else:
                                 self._viewer.add_image(self.sim.psf,
@@ -473,10 +475,12 @@ class SIMulator(QWidget):
                                                            -self.sim.dzn * self.sim.Nzn / 2,
                                                            -self.sim.dxn * self.sim.Nn / 2,
                                                            -self.sim.dxn * self.sim.Nn / 2),
-                                                       name='3d-PSF')
+                                                       name='3d-PSF', interpolation2d='spline36', colormap='viridis')
                                 plt.figure()
                                 plt.plot(np.sum(self.sim.psf, axis=(1, 2)))
                                 plt.title(f'max = {np.sum(self.sim.psf, axis=(1, 2)).max():.4f}')
+                                plt.xlabel('z')
+                                plt.ylabel('power sum (a.u.)')
                                 plt.show()
                         except Exception as e:
                             print(e)
@@ -515,7 +519,7 @@ class SIMulator(QWidget):
                                                        -self.sim.dzn * self.sim.Nzn / 2,
                                                        -self.sim.dxn * self.sim.Nn / 2,
                                                        -self.sim.dxn * self.sim.Nn / 2),
-                                                   name='3d-OTF')
+                                                   name='3d-OTF', colormap='viridis')
                         except Exception as e:
                             print(str(e))
 

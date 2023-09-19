@@ -3,7 +3,7 @@ Classes to calculate SIM illumination.
 """
 __author__ = "Meizhu Liang @Imperial College London"
 
-from .baseSIMulator import Base_simulator, import_torch
+from .baseSIMulator import Base_simulator
 import numpy as np
 from numpy import cos, sin
 
@@ -109,7 +109,7 @@ class RaHexIll(Illumination):
 
 class ConIll3D(Illumination):
     """
-    Conventional three dimensional SIM with two carrier beams and a zero order beam.
+    Conventional three-dimensional SIM with two carrier beams and a zero order beam.
     """
 
     def __init__(self):
