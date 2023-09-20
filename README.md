@@ -53,10 +53,10 @@ This plugin is compatible with **napari 0.4.17** or above, older versions of nap
 
 2) Launch two widgets: **Point cloud generator** and **SIM data generator** in ***Plugin***.
 
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/lauch.png)
+   ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/lauch.png)
 
    
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/2tabs.png)
+   ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/2tabs.png)
 
 
 3) Choose the type and other parameters of point cloud as a sample in **Point cloud generator**.
