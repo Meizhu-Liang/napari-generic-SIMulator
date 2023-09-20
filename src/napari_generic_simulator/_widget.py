@@ -25,7 +25,6 @@ class Samples(Enum):
 
 class PointCloud(QWidget):
     """A widget to go with the SIMulator widget that could generate, display, load and save point clouds."""
-
     def __init__(self, viewer: 'napari.viewer.Viewer'):
         self._viewer = viewer
         super().__init__()
@@ -242,19 +241,19 @@ class SIMulator(QWidget):
         self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
         self.Polarisation = ComboBox(value=Pol.radial, label='Polarisation', choices=Pol)
         self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
-        self.Psf = ComboBox(value=Psf_calc.SCALAR, label='Psf calculation', choices=Psf_calc)
+        self.Psf = ComboBox(value=Psf_calc.SCALAR, label='Psf', choices=Psf_calc)
         self.N = SpinBox(value=128, name='spin', label='N pixel', max=1100)
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
-        self.magnification = SpinBox(value=60, name='spin', label='magnification')
-        self.ill_NA = FloatSpinBox(value=1, name='spin', label='NA  illumination', min=0.0, step=0.1)
-        self.det_NA = FloatSpinBox(value=1.0, name='spin', label='NA  detection', min=0.0, step=0.1)
+        self.magnification = SpinBox(value=60, name='spin', label='lens_mag')
+        self.ill_NA = FloatSpinBox(value=1, name='spin', label='NA_ill', min=0.0, step=0.1)
+        self.det_NA = FloatSpinBox(value=1.0, name='spin', label='NA_det', min=0.0, step=0.1)
         self.n = FloatSpinBox(value=1.33, name='spin', label='n', min=0.00)
-        self.ill_wavelength = SpinBox(value=540, label='λ  illumination(nm)', step=10)
-        self.det_wavelength = SpinBox(value=540, label='λ  detection(nm)', step=10)
+        self.ill_wavelength = SpinBox(value=540, label='λ_ill(nm)', step=10)
+        self.det_wavelength = SpinBox(value=540, label='λ_det(nm)', step=10)
 
         self.tpoints = SpinBox(value=140,  label='tpoints', min=0, max=500, step=1)
         self.xdrift = FloatSpinBox(value=0.0, label='xdrift(nm)', min=0.0, max=1000.0, step=5)
-        self.drift = FloatSpinBox(value=0.0, label='Brownian motion(nm)', min=0.0, max=1000.0, step=5)
+        self.drift = FloatSpinBox(value=0.0, label='Brownian(nm)', min=0.0, max=1000.0, step=5)
         self.sph_abb = FloatSpinBox(value=0.0, name='spin', label='spherical(rad)', min=-10.0, max=10, step=0.5)
         self.zchoice = ComboBox(value='zdrift(nm)', choices=['zdrift(nm)', 'zstep(nm)'], label=None)
         self.zmove = FloatSpinBox(value=50, min=0.0, max=10000.0, step=5)
@@ -438,7 +437,7 @@ class SIMulator(QWidget):
                 except Exception as e:
                     print(str(e))
 
-        show_psf = PushButton(text='show_psf')
+        show_psf = PushButton(text='psf')
 
         @show_psf.clicked.connect
         def on_show_psf_click():
@@ -502,7 +501,7 @@ class SIMulator(QWidget):
             except Exception as e:
                 print(str(e))
 
-        show_otf = PushButton(text='show_otf')
+        show_otf = PushButton(text='otf')
         @show_otf.clicked.connect
         def on_show_otf_click():
             if hasattr(self, 'sim'):
@@ -547,16 +546,14 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
-        w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif])
-        w_show = Container(widgets=[show_psf, show_otf, show_illumination])
+        w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif], layout='horizontal')
+        w_show = Container(widgets=[show_psf, show_otf, show_illumination], layout='horizontal')
         self.messageBox = LineEdit(value='Messages')
-        self.w = Container(widgets=[Container(widgets=[
-            Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration,
-                               self.Psf, self.N,
-                               self.ill_NA, self.det_NA, self.n, self.ill_wavelength, self.det_wavelength,
-                               self.pixel_size,
-                               self.magnification, self.tpoints,
-                               self.xdrift, self.drift, self.sph_abb])]),
-            Container(widgets=[self.zchoice, self.zmove], labels=None),
-            magicgui(self.select_layer, call_button='Calculate results'),
+        b_p = Container(widgets=[self.SIM_mode, self.Polarisation, self.Acceleration, self.Psf, self.N,
+                                  self.ill_NA, self.det_NA, self.n, self.ill_wavelength, self.det_wavelength, self.pixel_size, self.magnification,
+                                  self.tpoints, self.xdrift, self.drift, self.sph_abb])  # basic parameters
+        self.w = Container(widgets=[b_p, self.zchoice, self.zmove, magicgui(self.select_layer, call_button='Calculate results'),
             w_save_and_print, w_show, self.messageBox], labels=None)
+        self.w.max_height = 740
+        self.w.max_width = 240
+
