@@ -12,12 +12,13 @@ A napari plugin to simulate raw-image stacks of Structured illumination microsco
 The simulation is originally based on the paper <strong>GPU-accelerated real-time reconstruction in Python of three-dimensional datasets from structured illumination microscopy with hexagonal patterns</strong> by
 Hai Gong, Wenjun Guo and Mark A. A. Neil (https://doi.org/10.1098/rsta.2020.0162). 
 
-The calculation can be GPU-accelerated if the CUPY (tested with cupy 8.3.0) is installed. In addition, the TORCH package can complete the acceleration both on CPU if TORCH is installed, and on GPU if TORCH is compiled with the CUDA (tested with torch v1.12.0+cu116) enabled.
+The calculation can be GPU-accelerated if the CUPY (tested with cupy-cuda11x) is installed. In addition, the TORCH package can complete the acceleration both on CPU if TORCH is installed, and on GPU if TORCH is compiled with the CUDA (tested with torch v1.13.1+cu117) enabled.
 
 Currently applies to:
 - conventional 2-beam SIM data with 3 angles and 3 phases
 - 3-beam hexagonal SIM data with 7 phases, as described in the paper
 - 3-beam hexagonal SIM data with 5 phases at right-angles
+- conventional 3-beam 3-D data with 3 angles and 5 phases
 
 ----------------------------------
 
@@ -43,7 +44,7 @@ To install latest development version :
 
     pip install git+https://github.com/Meizhu-Liang/napari-generic-SIMulator.git
 
-This plugin is compatible with **napari 0.4.17**, older versions of napari would show errors in _interpolation_.
+This plugin is compatible with **napari 0.4.17** or above, older versions of napari would show errors in _interpolation_.
 
 ## Usage
 
@@ -53,7 +54,9 @@ This plugin is compatible with **napari 0.4.17**, older versions of napari would
 2) Launch two widgets: **Point cloud generator** and **SIM data generator** in ***Plugin***.
 
     ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/lauch.png)
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/2widgets.png)
+
+   
+    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/2tabs.png)
 
 
 3) Choose the type and other parameters of point cloud as a sample in **Point cloud generator**.
@@ -67,9 +70,14 @@ This plugin is compatible with **napari 0.4.17**, older versions of napari would
 
 4) Adjust parameters in SIM data generator to simulate a raw image stack.
 
-    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/raw_stack.png)
+   Apart from basic parameters such as the refractive index, the wavelengths and so on, the z scanning can be either 
+   **z drift**: the conventional SIM (imaging a raw stack at the same z-position) or **z step**: the drifting case in 
+   the papaer mentioned above (imaging only one raw image at a z-position).
 
-    The parameters used in the simulation can be saved with the image stack by clicking **save tif with tags**. Tags (of current or of one stack dragged into napari viewer) can be printed in Python by **print tags**. 
+
+   ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/raw_stack.png)
+
+   The parameters used in the simulation can be saved with the image stack by clicking **save tif with tags**. Tags (of current or of one stack dragged into napari viewer) can be printed in Python by **print tags**. 
 
 
 5) Three-dimensional point spread function (**PSF**), optical transfer function (**OTF**) and **illumination** patterns applied in the simulation can be showed by buttons. Note the all of these correspond the generated raw-image stack, so keep the parameters the same before showing the **PSF** (or **OTF** and **illumination**).
