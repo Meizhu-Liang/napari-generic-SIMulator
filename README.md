@@ -55,7 +55,7 @@ This plugin is compatible with **napari 0.4.17** or above, older versions of nap
 
    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/lauch.png)
 
-   
+   The two widgets can be tabbed together.
    ![raw](https://github.com/Meizhu-Liang/napari-generic-SIMulator/raw/main/images/2tabs.png)
 
 
