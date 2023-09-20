@@ -239,9 +239,9 @@ class SIMulator(QWidget):
 
     def parameters(self):
         self.SIM_mode = ComboBox(value=Sim_mode.SIM_CONV, label='SIM_mode', choices=Sim_mode)
-        self.Polarisation = ComboBox(value=Pol.radial, label='Polarisation', choices=Pol)
-        self.Acceleration = ComboBox(value=list(Accel)[-1], label='Acceleration', choices=Accel)
-        self.Psf = ComboBox(value=Psf_calc.SCALAR, label='Psf', choices=Psf_calc)
+        self.Polarisation = ComboBox(value=Pol.radial, label='polarisation', choices=Pol)
+        self.Acceleration = ComboBox(value=list(Accel)[-1], label='acceleration', choices=Accel)
+        self.Psf = ComboBox(value=Psf_calc.SCALAR, label='psf', choices=Psf_calc)
         self.N = SpinBox(value=128, name='spin', label='N pixel', max=1100)
         self.pixel_size = FloatSpinBox(value=6.5, name='spin', label='pixel size(μm)', step=0.5)
         self.magnification = SpinBox(value=60, name='spin', label='lens_mag')
