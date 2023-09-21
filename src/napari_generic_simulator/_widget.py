@@ -155,9 +155,9 @@ class PointCloud(QWidget):
         self.random_seed = SpinBox(value=123, name='spin', label='random seed')
         self.w_samples = RadioButtons(value=Samples.SPHEROIDAL, choices=Samples)
 
-        self.sph_points = SpinBox(value=500, step=50, label='spheroidal_points')
-        self.sph_rad = SpinBox(value=5, label='spheroidal_radius (μm)')
-        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='spheroidal_depth (μm)')
+        self.sph_points = SpinBox(value=500, step=50, label='pc_points')
+        self.sph_rad = SpinBox(value=5, label='pc_radius (μm)')
+        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='pc_depth (μm)')
         self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad])
 
         self.fil_n = SpinBox(value=20, max=100, label='filament_n')
