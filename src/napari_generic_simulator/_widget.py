@@ -156,12 +156,12 @@ class PointCloud(QWidget):
         self.w_samples = RadioButtons(value=Samples.SPHEROIDAL, choices=Samples)
 
         self.sph_points = SpinBox(value=500, step=50, label='pc_points')
-        self.sph_rad = SpinBox(value=5, label='pc_radius (μm)')
-        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='pc_depth (μm)')
+        self.sph_rad = SpinBox(value=5, label='pc_radius(μm)')
+        self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='pc_depth(μm)')
         self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad])
 
         self.fil_n = SpinBox(value=20, max=100, label='filament_n')
-        self.fil_len = SpinBox(value=5, label='filament_length (μm)')
+        self.fil_len = SpinBox(value=5, label='filament_length(μm)')
         self.fil_step = FloatSpinBox(value=0.05, step=0.01, max=self.fil_len.value, label='filament_step (μm)')
 
         self.w_fil = Container(widgets=[self.fil_n, self.fil_len, self.fil_step])
