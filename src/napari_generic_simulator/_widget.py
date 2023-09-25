@@ -145,7 +145,7 @@ class PointCloud(QWidget):
             filename, _ = QFileDialog.getOpenFileName(self, 'Pick a file', filter='Files (*.pcd)')
             pc = pypcd.point_cloud_from_path(filename)
             out_arr = structured_to_unstructured(pc.pc_data)
-            print(out_arr.shape, out_arr.dtype, out_arr)
+            # print(out_arr.shape, out_arr.dtype, out_arr)
             self._viewer.add_points(-out_arr, size=0.05, name=filename[0])
         except Exception as e:
             print(e)
