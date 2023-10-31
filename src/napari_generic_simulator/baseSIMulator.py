@@ -81,16 +81,22 @@ class Base_simulator:
         self.dzn = 2 * self.zrangeN / self.Nzn  # step size in axial direction of PSF in um
         if (self.acc == 1) | (self.acc == 2):
             self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
-
-        # pre allocate phasetilts arrays
+        dkz = np.pi / self.zrangeN
         if (self.acc == 0) or (self.acc == 3):
+            self.kxy = self.xp.arange(-self.Nn / 2 * self.dk, (self.Nn / 2) * self.dk, self.dk, dtype=self.xp.single)
+            self.kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
             if self.psf_calc == 'vector_rigid':
+                # pre allocate phasetilts arrays
                 self.phasetilts = [self.xp.zeros((3, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
                                    for i in range(self._nsteps)]
             else:
                 self.phasetilts = [self.xp.zeros((self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
                                    for i in range(self._nsteps)]
         else:
+            self.kxy = torch.arange(-self.Nn / 2 * self.dk, (self.Nn / 2) * self.dk, self.dk,
+                               dtype=torch.float32, device=self._tdev)
+            self.kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
+                              dtype=torch.float32, device=self._tdev)
             if self.psf_calc == 'vector_rigid':
                 self.phasetilts = [torch.zeros(3, self.Nzn, self.Nn, self.Nn, dtype=torch.complex64,
                                                device=self._tdev) for i in range(self._nsteps)]
@@ -100,18 +106,6 @@ class Base_simulator:
 
     def phase_tilts(self):
         """Generates phase tilts in frequency space"""
-        xyrange = self.Nn / 2 * self.dxn
-        dkxy = np.pi / xyrange
-        dkz = np.pi / self.zrangeN
-        if (self.acc == 0) or (self.acc == 3):
-            kxy = self.xp.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy, dtype=self.xp.single)
-            kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
-        else:
-            kxy = torch.arange(-self.Nn / 2 * dkxy, (self.Nn / 2) * dkxy, dkxy,
-                               dtype=torch.float32, device=self._tdev)
-            kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
-                              dtype=torch.float32, device=self._tdev)
-
         start_time = time.time()
         itcount = 0
         total_its = self._angleStep * self._phaseStep * self.npoints
@@ -137,9 +131,9 @@ class Base_simulator:
                     x = self.xp.array(self.points[:, 0], dtype=self.xp.single)
                     y = self.xp.array(self.points[:, 1], dtype=self.xp.single)
                     z = self.xp.array(self.points[:, 2], dtype=self.xp.single)
-                    px = self.xp.exp(1j * kxy[self.xp.newaxis, :] * x[:, self.xp.newaxis])
-                    py = self.xp.exp(1j * kxy[self.xp.newaxis, :] * y[:, self.xp.newaxis])
-                    pz = self.xp.exp(1j * kz[self.xp.newaxis, :] * z[:, self.xp.newaxis])
+                    px = self.xp.exp(1j * self.kxy[self.xp.newaxis, :] * x[:, self.xp.newaxis])
+                    py = self.xp.exp(1j * self.kxy[self.xp.newaxis, :] * y[:, self.xp.newaxis])
+                    pz = self.xp.exp(1j * self.kz[self.xp.newaxis, :] * z[:, self.xp.newaxis])
                     if self.psf_calc == 'vector_rigid':
                         ill = self.xp.array(self._ill_obj_vec(x, y, z, pstep, astep),
                                             dtype=self.xp.single)
@@ -153,9 +147,9 @@ class Base_simulator:
                     y = torch.tensor(self.points[:, 1], dtype=torch.float32, device=self._tdev)
                     z = torch.tensor(self.points[:, 2], dtype=torch.float32, device=self._tdev)
 
-                    px = torch.exp(1j * kxy[None, :] * x[:, None])
-                    py = torch.exp(1j * kxy[None, :] * y[:, None])
-                    pz = torch.exp(1j * kz[None, :] * z[:, None])
+                    px = torch.exp(1j * self.kxy[None, :] * x[:, None])
+                    py = torch.exp(1j * self.kxy[None, :] * y[:, None])
+                    pz = torch.exp(1j * self.kz[None, :] * z[:, None])
                     if self.psf_calc == 'vector_rigid':
                         ill = torch.tensor(self._ill_obj_vec(self.points[:, 0], self.points[:, 1], self.points[:, 2], pstep, astep),
                                            dtype=torch.float32, device=self._tdev)
@@ -296,9 +290,11 @@ class Base_simulator:
         psf = self.xp.zeros((self.Nzn, self.Nn, self.Nn))
         pupil = self.kr < (self.krmax)
         kz = np.sqrt(self.k0_det ** 2 - (self.kr * pupil) ** 2)
-        for z in np.arange(-self.zrangeN, self.zrangeN, self.dzn):
+        for z in np.arange(-self.zrangeN, self.zrangeN,
+                           self.dzn):
             c = np.exp(1j * (z * kz + self.spherical)) * pupil
-            psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c, norm='ortho'))) ** 2
+            psf[nz, :, :] = abs(np.fft.fftshift(
+                np.fft.ifft2(c, norm='ortho'))) ** 2
             # default 'backwards' normalisation: psf[nz, :, :] = abs(np.fft.fftshift(np.fft.ifft2(c))) ** 2
             nz = nz + 1
         # Normalised so power in resampled psf(see later on) is unity in focal plane
