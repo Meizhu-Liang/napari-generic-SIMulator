@@ -377,11 +377,11 @@ class SIMulator(QWidget):
             self.messageBox.value = f'Please select a point-cloud layer'
         else:
             if self.zchoice.value == 'zdrift(nm)':
-                self.zsc = self.zrange / self.tpoints.value + self.zmove.value * 0.001  # z scale
-                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / 2 - self.zrange / 2  # z translate
+                self.zsc = self.zmove.value * 0.001  # z scale
+                self.ztr = -self.zmove.value * 0.001 * self.tpoints.value / 2  # z translate
             else:
-                self.zsc = (self.zrange / (self.tpoints.value / self.sim._nsteps) + self.zmove.value * 0.001) / self.sim._nsteps
-                self.ztr = -self.zmove.value * 0.001 * (self.tpoints.value / self.sim._nsteps) / 2 - self.zrange / 2  # z translate
+                self.zsc = self.zmove.value * 0.001 / self.sim._nsteps  # z scale
+                self.ztr = -self.zmove.value * 0.001 * (self.tpoints.value / self.sim._nsteps) / 2  # z translate
             md = {'mode': str(self.SIM_mode.value),
                       'pol': str(self.Polarisation.value),
                       'acc': str(self.Acceleration.value), 'psf': str(self.Psf.value),
