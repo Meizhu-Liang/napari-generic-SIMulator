@@ -11,6 +11,6 @@ if __name__ == '__main__':
     simulator = SIMulator(viewer)
     w1 = viewer.window.add_dock_widget(point_cloud, name='Point cloud generator', add_vertical_stretch=True)
     w2 = viewer.window.add_dock_widget(simulator, name='SIM data generator', add_vertical_stretch=True)
-    viewer.window._qt_window.tabifyDockWidget(w1, w2)
+    # viewer.window._qt_window.tabifyDockWidget(w1, w2)
 
     napari.run()
