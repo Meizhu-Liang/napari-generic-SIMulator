@@ -574,7 +574,7 @@ class SIMulator(QWidget):
                                   self.tpoints, self.xdrift, self.drift, self.sph_abb])  # basic parameters
         self.w = Container(widgets=[b_p, self.zchoice, self.zmove, magicgui(self.select_layer, call_button='Calculate results'),
             w_save_and_print, w_show, self.messageBox], labels=None)
-        self.w.max_height = 740
-        self.w.max_width = 240
+        # self.w.max_height = 740
+        # self.w.max_width = 240
 
 
