@@ -9,18 +9,13 @@ from .baseSIMulator import import_cp, import_torch, torch_GPU
 from .Illumination import ConIll, HexIll, RaHexIll, ConIll3D
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from napari.qt.threading import thread_worker
-from magicgui.widgets import SpinBox, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons, PushButton
+from magicgui.widgets import SpinBox, Container, ComboBox, FloatSpinBox, LineEdit, RadioButtons, PushButton, RadioButton
 from napari.layers import Layer
 import tifffile
 import numpy as np
 from numpy.lib.recfunctions import structured_to_unstructured
 from pypcd import pypcd
 import matplotlib.pyplot as plt
-
-
-class Samples(Enum):
-    SPHEROIDAL = 500
-    FILAMENTS = 10
 
 
 class PointCloud(QWidget):
@@ -114,11 +109,11 @@ class PointCloud(QWidget):
 
     def gen_pc(self):
         np.random.seed(self.random_seed.value)
-        if self.w_samples.value == Samples.FILAMENTS:
+        if self.fil.value:
             self.pc = self.point_cloud_fil(self.fil_n.value, self.fil_len.value, self.fil_step.value)
             re_dep = self.fil_len.value / 2
             name = 'filaments'
-        elif self.w_samples.value == Samples.SPHEROIDAL:
+        else:
             self.pc = self.point_cloud(self.sph_points.value, self.sph_rad.value, self.sph_dep.value)
             re_dep = self.sph_dep.value
             name = 'spheroidal'
@@ -153,28 +148,49 @@ class PointCloud(QWidget):
     def cloud_widgets(self):
         """Creates a widget containing all small widgets"""
         self.random_seed = SpinBox(value=123, name='spin', label='random seed')
-        self.w_samples = RadioButtons(value=Samples.SPHEROIDAL, choices=Samples)
-
+        # self.w_samples = RadioButtons(value=Samples.SPHEROIDAL, choices=Samples)
+        self.sph = RadioButton(value=False, label='spheroidal')
         self.sph_points = SpinBox(value=500, step=50, label='pc_points')
         self.sph_rad = SpinBox(value=5, label='pc_radius(μm)')
         self.sph_dep = FloatSpinBox(value=2.5, step=0.5, max=self.sph_rad.value, label='pc_depth(μm)')
-        self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad])
+        self.w_sph = Container(widgets=[self.sph_points, self.sph_dep, self.sph_rad, self.sph])
+        self.w_sph.hide()
 
+        self.fil = RadioButton(value=False, label='filament')
         self.fil_n = SpinBox(value=20, max=100, label='filament_n')
         self.fil_len = SpinBox(value=5, label='filament_length(μm)')
         self.fil_step = FloatSpinBox(value=0.05, step=0.01, max=self.fil_len.value, label='filament_step (μm)')
-
         self.w_fil = Container(widgets=[self.fil_n, self.fil_len, self.fil_step])
+        self.w_fil.hide()
 
         self.comprehensive_w = Container(widgets=[magicgui(self.save_pc, call_button='Save current layer as .pcd',
                                                            auto_call=False),
                                                   magicgui(self.load_pc, call_button='Load point cloud',
-                                                           auto_call=False)],labels=None)
-        self.c_w = Container(widgets=[Container(widgets=[self.random_seed]), self.w_samples, self.w_sph, self.w_fil,
+                                                           auto_call=False)], labels=None, layout='horizontal')
+        self.c_w = Container(widgets=[Container(widgets=[self.random_seed]), self.sph, self.fil, self.w_sph, self.w_fil,
                                       Container(widgets=[magicgui(self.gen_pc,
                                                                   call_button='Generate point cloud',
                                                                   auto_call=False)], labels=None),
                                       self.comprehensive_w])
+        self.sph.clicked.connect(self.showSph)
+        self.fil.clicked.connect(self.showFil)
+
+
+    def showSph(self):
+        if self.fil.value:
+            self.fil.value = False
+        if self.sph.value:
+            self.w_sph.show()
+        else:
+            self.w_sph.hide()
+
+    def showFil(self):
+        if self.sph.value:
+            self.sph.value = False
+        if self.fil.value:
+            self.w_fil.show()
+        else:
+            self.w_fil.hide()
 
 class Sim_mode(Enum):
     HEXSIM = 0
@@ -422,9 +438,12 @@ class SIMulator(QWidget):
 
             _get_results()
 
+
+
     def wrap_widgets(self):
         # 'save and print' widgets
         save_tif_with_tags = PushButton(text='save_tif_with_tags')
+
 
         @save_tif_with_tags.clicked.connect
         def on_save_tif_with_tags_click():
@@ -546,6 +565,7 @@ class SIMulator(QWidget):
                     except Exception as e:
                         print(str(e))
 
+
         w_save_and_print = Container(widgets=[save_tif_with_tags, print_tif], layout='horizontal')
         w_show = Container(widgets=[show_psf, show_otf, show_illumination], layout='horizontal')
         self.messageBox = LineEdit(value='Messages')
@@ -554,6 +574,7 @@ class SIMulator(QWidget):
                                   self.tpoints, self.xdrift, self.drift, self.sph_abb])  # basic parameters
         self.w = Container(widgets=[b_p, self.zchoice, self.zmove, magicgui(self.select_layer, call_button='Calculate results'),
             w_save_and_print, w_show, self.messageBox], labels=None)
-        self.w.max_height = 740
-        self.w.max_width = 240
+        # self.w.max_height = 740
+        # self.w.max_width = 240
+
 
