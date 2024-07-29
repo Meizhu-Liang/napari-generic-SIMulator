@@ -14,7 +14,7 @@ from napari.layers import Layer
 import tifffile
 import numpy as np
 from numpy.lib.recfunctions import structured_to_unstructured
-from pypcd_imp import pypcd
+from pypcd import pypcd
 import matplotlib.pyplot as plt
 
 
