@@ -47,7 +47,6 @@ class PointCloud(QWidget):
         for i in range(nSamples):
             alpha = 2 * np.pi * np.random.rand()
             beta = np.pi / 4 * (1 - 2 * np.random.rand())
-
             # centres of filaments
             xS = -L / 2 + L * np.random.rand()
             yS = -L / 2 + L * np.random.rand()

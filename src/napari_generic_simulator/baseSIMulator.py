@@ -83,8 +83,8 @@ class Base_simulator:
             self._tdev = torch.device('cuda' if self.acc == 2 else 'cpu')
         dkz = np.pi / self.zrangeN
         if (self.acc == 0) or (self.acc == 3):
-            self.kxy = self.xp.arange(-self.Nn / 2 * self.dk, (self.Nn / 2) * self.dk, self.dk, dtype=self.xp.single)
-            self.kz = self.xp.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz, dtype=self.xp.single)
+            self.kxy = self.dk * self.xp.arange(-self.Nn // 2, self.Nn // 2, 1, dtype=self.xp.single)
+            self.kz = dkz * self.xp.arange(-self.Nzn // 2, self.Nzn // 2, 1, dtype=self.xp.single)
             if self.psf_calc == 'vector_rigid':
                 # pre allocate phasetilts arrays
                 self.phasetilts = [self.xp.zeros((3, self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
@@ -93,9 +93,9 @@ class Base_simulator:
                 self.phasetilts = [self.xp.zeros((self.Nzn, self.Nn, self.Nn), dtype=self.xp.complex64)
                                    for i in range(self._nsteps)]
         else:
-            self.kxy = torch.arange(-self.Nn / 2 * self.dk, (self.Nn / 2) * self.dk, self.dk,
+            self.kxy = self.dk * torch.arange(-self.Nn // 2, self.Nn // 2, 1,
                                dtype=torch.float32, device=self._tdev)
-            self.kz = torch.arange(-self.Nzn / 2 * dkz, (self.Nzn / 2) * dkz, dkz,
+            self.kz = dkz * torch.arange(-self.Nzn // 2, self.Nzn // 2, 1,
                               dtype=torch.float32, device=self._tdev)
             if self.psf_calc == 'vector_rigid':
                 self.phasetilts = [torch.zeros(3, self.Nzn, self.Nn, self.Nn, dtype=torch.complex64,
@@ -122,7 +122,7 @@ class Base_simulator:
                 prog = (100 * itcount) // total_its
                 if prog > lastProg + 9:
                     lastProg = prog
-                    yield f'Phase tilts calculation: {prog:.1f}% done'
+                    # yield f'Phase tilts calculation: {prog:.1f}% done'
                 itcount += 1
 
                 # get illumination from the child class
@@ -159,7 +159,7 @@ class Base_simulator:
                                            dtype=torch.float32, device=self._tdev)
                         oe.contract('i,il,ik,ij->jkl', ill, px, py, pz, out=self.phasetilts[istep])
         self.elapsed_time = time.time() - start_time
-        yield f'Phase tilts calculation time:  {self.elapsed_time:3f}s'
+        yield f'{self.elapsed_time:.3f}s'
 
     def get_vector_psf(self):
         # use krmax to define the pupil function
@@ -418,7 +418,7 @@ class Base_simulator:
         # # Save generated images
         # tifffile.imwrite(stackfilename, self.img)
         elapsed_Brownian = time.time() - start_Brownian
-        yield f'Finished, Phase tilts calculation time:  {elapsed_Brownian:3f}s'
+        yield f'Finished, Phase tilts calculation time:  {elapsed_Brownian:.3f}s'
 
     def illumination_stack(self):
         # Calculates 3d psf and otf before the image stack
