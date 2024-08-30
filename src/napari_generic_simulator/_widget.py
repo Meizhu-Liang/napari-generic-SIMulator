@@ -120,7 +120,7 @@ class PointCloud(QWidget):
         print('Point cloud generated')
         if hasattr(self, 'pc'):
             try:
-                self._viewer.add_points(-self.pc[:, ::-1], size=0.05, name=f'{re_dep}μm_{name}')
+                self._viewer.add_points(-self.pc[:, ::-1], size=0.05, name=f'{re_dep}μm_{name}', face_color='chartreuse')
             except Exception as e:
                 print(e)
 
@@ -424,6 +424,9 @@ class SIMulator(QWidget):
                                            (-xysc * self.N.value / 2, xysc * self.N.value / 2, xysc))
                 self._viewer.dims.current_step = (data.shape[0] // 2, data.shape[1] // 2, data.shape[2] // 2)
                 self._viewer.dims.axis_labels = ('z', 'x', 'y')
+                self._viewer.scale_bar.visible = True
+                self._viewer.scale_bar.unit = 'um'
+                self._viewer.scale_bar.font_size = 14
                 delattr(self, 'points')
 
             @thread_worker(connect={"returned": show_img})
